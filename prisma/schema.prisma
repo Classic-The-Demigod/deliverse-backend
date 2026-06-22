@@ -1,0 +1,1118 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                  String             @id @default(cuid())
+  email               String             @unique
+  phone               String             @unique
+  passwordHash        String?
+  role                Role
+  primaryAuthProvider AuthProvider       @default(LOCAL)
+  signupChannel       SignupChannel      @default(MOBILE_APP)
+  isVerified          Boolean            @default(false)
+  isActive            Boolean            @default(true)
+  emailVerifiedAt     DateTime?
+  phoneVerifiedAt     DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  dateOfBirth         String?
+  fullName            String?
+  gender              Gender?
+  avatarUrl           String?
+  expoPushToken       String?
+  notifyAnnouncements Boolean            @default(true)
+  notifyDelivery      Boolean            @default(true)
+  notifyDispatch      Boolean            @default(false)
+  notifyPayment       Boolean            @default(true)
+  adminProfile        AdminProfile?
+  authIdentities      AuthIdentity[]
+  bankAccount         BankAccount?
+  businessProfile     BusinessProfile?
+  initiatedCalls      CallLog[]          @relation("InitiatedCalls")
+  chatParticipants    ChatParticipant[]
+  driverProfile       DriverProfile?
+  sentMessages        Message[]          @relation("SentMessages")
+  notifications       Notification[]
+  operatorProfile     OperatorProfile?
+  orders              Order[]
+  refreshTokens       RefreshToken[]
+  savedCards          SavedCard[]
+  acceptedInvitation  UserInvitation[]   @relation("AcceptedInvitations")
+  sentInvitations     UserInvitation[]   @relation("SentInvitations")
+  verificationCodes   VerificationCode[]
+  wallet              Wallet?
+
+  @@index([role, isActive])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model BusinessProfile {
+  id                    String            @id @default(cuid())
+  userId                String            @unique
+  businessName          String
+  contactName           String?
+  address               String
+  logoUrl               String?
+  isApproved            Boolean           @default(false)
+  onboardingStatus      OnboardingStatus  @default(DRAFT)
+  onboardingSubmittedAt DateTime?
+  reviewedAt            DateTime?
+  rejectionReason       String?
+  apiKeys               BusinessApiKey[]
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents             KycDocument[]
+  webhookEndpoints      WebhookEndpoint[]
+
+  @@map("business_profiles")
+}
+
+model OperatorProfile {
+  id                    String                @id @default(cuid())
+  userId                String                @unique
+  companyName           String
+  rcNumber              String?
+  address               String
+  logoUrl               String?
+  supportPhone          String?
+  isApproved            Boolean               @default(false)
+  onboardingStatus      OnboardingStatus      @default(DRAFT)
+  onboardingSubmittedAt DateTime?
+  reviewedAt            DateTime?
+  rejectionReason       String?
+  kycStatus             KycStatus             @default(PENDING)
+  trustScore            Float                 @default(100)
+  isSuspended           Boolean               @default(false)
+  bankCode              String?
+  bankAccountNumber     String?
+  bankAccountName       String?
+  settlementSchedule    String?               @default("WEEKLY")
+  bankAccount           BankAccount?
+  assignments           DriverAssignment[]
+  drivers               DriverProfile[]
+  documents             KycDocument[]
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serviceZones          OperatorServiceZone[]
+  issueReports          OrderIssue[]
+  orders                Order[]
+  pricingConfigs        PricingConfig[]
+  settledEarnings       SettlementRecord[]
+  invitations           UserInvitation[]
+  vehicles              Vehicle[]
+  wallet                Wallet?               @relation("OperatorWallet")
+
+  @@map("operator_profiles")
+}
+
+model PricingConfig {
+  id          String          @id @default(cuid())
+  operatorId  String
+  vehicleType VehicleType
+  baseFare    Decimal         @db.Decimal(12, 2)
+  perKmRate   Decimal         @db.Decimal(12, 2)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  urgencyTier UrgencyTier     @default(STANDARD)
+  operator    OperatorProfile @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@unique([operatorId, vehicleType, urgencyTier])
+  @@map("pricing_configs")
+}
+
+model DriverProfile {
+  id                    String             @id @default(cuid())
+  userId                String             @unique
+  operatorId            String
+  firstName             String
+  lastName              String
+  address               String?
+  photoUrl              String?
+  licenseNumber         String?
+  nin                   String?
+  onboardingStatus      OnboardingStatus   @default(DRAFT)
+  onboardingSubmittedAt DateTime?
+  reviewedAt            DateTime?
+  rejectionReason       String?
+  kycStatus             KycStatus          @default(PENDING)
+  status                DriverStatus       @default(OFFLINE)
+  currentLatitude       Float?
+  currentLongitude      Float?
+  batteryLevel          Int?
+  signalStrength        Int?
+  lastSeenAt            DateTime?
+  isSuspended           Boolean            @default(false)
+  onTimeDeliveryRate    Float              @default(0)
+  verifiedPodRate       Float              @default(0)
+  avgPickupLatency      Int                @default(0)
+  idleTimeRatio         Float              @default(0)
+  otpBypassRate         Float              @default(0)
+  recipientRating       Float              @default(0)
+  geofenceSuccessRate   Float              @default(0)
+  geofenceBreachCount   Int                @default(0)
+  totalDeliveries       Int                @default(0)
+  totalPenalties        Float              @default(0)
+  penaltyContribution   Float              @default(0)
+  vehicleId             String?
+  assignments           DriverAssignment[]
+  operator              OperatorProfile    @relation(fields: [operatorId], references: [id])
+  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle               Vehicle?           @relation(fields: [vehicleId], references: [id])
+  documents             KycDocument[]
+  locationLogs          LocationLog[]
+  issueReports          OrderIssue[]
+  orders                Order[]
+  ratings               Rating[]
+
+  @@index([operatorId, status])
+  @@map("driver_profiles")
+}
+
+model AdminProfile {
+  id               String       @id @default(cuid())
+  userId           String       @unique
+  fullName         String
+  level            AdminLevel   @default(STANDARD)
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resolvedDisputes Dispute[]
+  resolvedIssues   OrderIssue[] @relation("ResolvedIssues")
+
+  @@map("admin_profiles")
+}
+
+model Vehicle {
+  id              String           @id @default(cuid())
+  operatorId      String
+  licensePlate    String           @unique
+  vehicleType     VehicleType
+  model           String?
+  color           String?
+  insuranceExpiry DateTime?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  drivers         DriverProfile[]
+  documents       KycDocument[]
+  invitations     UserInvitation[]
+  operator        OperatorProfile  @relation(fields: [operatorId], references: [id])
+
+  @@index([operatorId, vehicleType])
+  @@map("vehicles")
+}
+
+model ServiceZone {
+  id            String                @id @default(cuid())
+  name          String
+  city          String
+  isActive      Boolean               @default(true)
+  operators     OperatorServiceZone[]
+  dropoffOrders Order[]               @relation("DropoffZone")
+  pickupOrders  Order[]               @relation("PickupZone")
+
+  @@unique([name, city])
+  @@map("service_zones")
+}
+
+model OperatorServiceZone {
+  id            String          @id @default(cuid())
+  operatorId    String
+  serviceZoneId String
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  operator      OperatorProfile @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  serviceZone   ServiceZone     @relation(fields: [serviceZoneId], references: [id], onDelete: Cascade)
+
+  @@unique([operatorId, serviceZoneId])
+  @@map("operator_service_zones")
+}
+
+model KycDocument {
+  id         String           @id @default(cuid())
+  type       DocumentType
+  fileUrl    String
+  status     KycStatus        @default(PENDING)
+  notes      String?
+  businessId String?
+  operatorId String?
+  driverId   String?
+  vehicleId  String?
+  uploadedAt DateTime         @default(now())
+  reviewedAt DateTime?
+  business   BusinessProfile? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  driver     DriverProfile?   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  operator   OperatorProfile? @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  vehicle    Vehicle?         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, type])
+  @@index([operatorId, type])
+  @@index([driverId, type])
+  @@index([vehicleId, type])
+  @@map("kyc_documents")
+}
+
+model AuthIdentity {
+  id                String       @id @default(cuid())
+  userId            String
+  provider          AuthProvider
+  providerAccountId String
+  email             String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId, provider])
+  @@map("auth_identities")
+}
+
+model UserInvitation {
+  id                String           @id @default(cuid())
+  role              Role
+  email             String?
+  phone             String?
+  status            InvitationStatus @default(PENDING)
+  signupChannel     SignupChannel    @default(INVITE)
+  inviteToken       String           @unique
+  operatorId        String?
+  invitedByUserId   String?
+  acceptedByUserId  String?
+  expiresAt         DateTime
+  acceptedAt        DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  assignedVehicleId String?
+  acceptedByUser    User?            @relation("AcceptedInvitations", fields: [acceptedByUserId], references: [id])
+  assignedVehicle   Vehicle?         @relation(fields: [assignedVehicleId], references: [id])
+  invitedByUser     User?            @relation("SentInvitations", fields: [invitedByUserId], references: [id])
+  operator          OperatorProfile? @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([role, status])
+  @@index([operatorId, status])
+  @@map("user_invitations")
+}
+
+model Order {
+  id                   String                   @id @default(cuid())
+  orderNumber          String                   @unique
+  merchantReference    String?
+  status               OrderStatus              @default(CREATED)
+  operatorId           String?
+  driverId             String?
+  pickupZoneId         String?
+  dropoffZoneId        String?
+  vehicleType          VehicleType
+  sensitivity          PackageSensitivity       @default(STANDARD)
+  urgency              UrgencyTier              @default(STANDARD)
+  weightKg             Float?
+  lengthCm             Float?
+  widthCm              Float?
+  heightCm             Float?
+  description          String?
+  declaredItemValue    Decimal?                 @db.Decimal(12, 2)
+  itemCost             Decimal?                 @db.Decimal(12, 2)
+  handlingNotes        String?
+  specialInstructions  String?
+  pickupAddress        String
+  pickupLatitude       Float
+  pickupLongitude      Float
+  pickupContactName    String
+  pickupContactPhone   String
+  dropoffAddress       String
+  dropoffLatitude      Float
+  dropoffLongitude     Float
+  recipientName        String
+  recipientPhone       String
+  scheduledFor         DateTime?
+  distanceKm           Float?
+  quotedPrice          Decimal                  @db.Decimal(12, 2)
+  counterOfferPrice    Decimal?                 @db.Decimal(12, 2)
+  counterOfferNote     String?
+  counterOfferStatus   CounterOfferStatus?
+  finalPrice           Decimal?                 @db.Decimal(12, 2)
+  dispatchDeadline     DateTime?
+  estimatedPickupAt    DateTime?
+  estimatedDeliveryAt  DateTime?
+  broadcastedAt        DateTime?
+  acceptedAt           DateTime?
+  assignedAt           DateTime?
+  arrivedPickupAt      DateTime?
+  actualPickedUpAt     DateTime?
+  arrivedDestinationAt DateTime?
+  actualDeliveredAt    DateTime?
+  cancelledAt          DateTime?
+  failedAt             DateTime?
+  returnedAt           DateTime?
+  deliveryOtp          String?
+  otpVerified          Boolean                  @default(false)
+  pickupGeoVerified    Boolean                  @default(false)
+  deliveryGeoVerified  Boolean                  @default(false)
+  trackingToken        String                   @unique @default(cuid())
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  packageImageUrl      String?
+  userId               String
+  packageName          String                   @default("Standard Package")
+  dropoffPasscode      String?
+  pickupPasscode       String?
+  delayReason          String?
+  isDelayed            Boolean                  @default(false)
+  driverAccepted       Boolean                  @default(false)
+  callLogs             CallLog[]
+  chatSession          ChatSession?
+  dispute              Dispute?
+  driverAssignments    DriverAssignment[]
+  idleTimers           IdleTimer[]
+  locationLogs         LocationLog[]
+  issueReports         OrderIssue[]
+  statusEvents         OrderStatusEvent[]
+  driver               DriverProfile?           @relation(fields: [driverId], references: [id])
+  dropoffZone          ServiceZone?             @relation("DropoffZone", fields: [dropoffZoneId], references: [id])
+  operator             OperatorProfile?         @relation(fields: [operatorId], references: [id])
+  pickupZone           ServiceZone?             @relation("PickupZone", fields: [pickupZoneId], references: [id])
+  user                 User                     @relation(fields: [userId], references: [id])
+  payment              Payment?
+  penalties            Penalty[]
+  pickupProof          PickupProof?
+  proofOfDelivery      ProofOfDelivery?
+  ratings              Rating[]
+  webhookDeliveries    WebhookDeliveryAttempt[]
+
+  @@index([userId, status])
+  @@index([operatorId, status])
+  @@index([driverId, status])
+  @@index([dispatchDeadline])
+  @@index([estimatedDeliveryAt])
+  @@index([pickupZoneId])
+  @@index([dropoffZoneId])
+  @@map("orders")
+}
+
+model PickupProof {
+  id             String   @id @default(cuid())
+  orderId        String   @unique
+  photoUrl       String
+  photoLatitude  Float
+  photoLongitude Float
+  withinGeofence Boolean
+  notes          String?
+  capturedAt     DateTime @default(now())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("pickup_proofs")
+}
+
+model ProofOfDelivery {
+  id                 String                     @id @default(cuid())
+  orderId            String                     @unique
+  photoUrl           String
+  photoLatitude      Float
+  photoLongitude     Float
+  withinGeofence     Boolean
+  signatureUrl       String?
+  otpUsed            Boolean                    @default(false)
+  verificationMethod DeliveryVerificationMethod
+  capturedAt         DateTime                   @default(now())
+  order              Order                      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("proof_of_delivery")
+}
+
+model OrderStatusEvent {
+  id         String       @id @default(cuid())
+  orderId    String
+  fromStatus OrderStatus?
+  toStatus   OrderStatus
+  actorId    String
+  actorRole  Role
+  latitude   Float?
+  longitude  Float?
+  deviceId   String?
+  notes      String?
+  payload    Json?
+  occurredAt DateTime
+  receivedAt DateTime     @default(now())
+  order      Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, occurredAt])
+  @@map("order_status_events")
+}
+
+model DriverAssignment {
+  id                  String                 @id @default(cuid())
+  orderId             String
+  operatorId          String
+  driverId            String
+  status              DriverAssignmentStatus @default(ACTIVE)
+  notes               String?
+  assignedAt          DateTime               @default(now())
+  releasedAt          DateTime?
+  handoverCompletedAt DateTime?
+  driver              DriverProfile          @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  operator            OperatorProfile        @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  order               Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, assignedAt])
+  @@index([driverId, status])
+  @@map("driver_assignments")
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  orderId           String        @unique
+  amount            Decimal       @db.Decimal(12, 2)
+  platformFee       Decimal       @db.Decimal(12, 2)
+  operatorAmount    Decimal       @db.Decimal(12, 2)
+  status            PaymentStatus @default(PENDING)
+  provider          String?
+  providerReference String?       @unique
+  providerChannel   String?
+  providerResponse  Json?
+  paidAt            DateTime?
+  releasedAt        DateTime?
+  refundedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  order             Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model SavedCard {
+  id                String          @id @default(cuid())
+  userId            String
+  provider          PaymentProvider
+  authorizationCode String
+  cardType          String
+  last4             String
+  expMonth          String
+  expYear           String
+  reusable          Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("saved_cards")
+}
+
+model Wallet {
+  id            String              @id @default(cuid())
+  userId        String?             @unique
+  operatorId    String?             @unique
+  balance       Decimal             @default(0) @db.Decimal(12, 2)
+  escrowBalance Decimal             @default(0) @db.Decimal(12, 2)
+  currency      String              @default("NGN")
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  transactions  WalletTransaction[]
+  operator      OperatorProfile?    @relation("OperatorWallet", fields: [operatorId], references: [id], onDelete: Cascade)
+  user          User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id          String                @id @default(cuid())
+  walletId    String
+  amount      Decimal               @db.Decimal(12, 2)
+  type        WalletTransactionType
+  description String
+  reference   String?
+  createdAt   DateTime              @default(now())
+  wallet      Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId, createdAt])
+  @@map("wallet_transactions")
+}
+
+model SettlementRecord {
+  id            String           @id @default(cuid())
+  operatorId    String
+  amount        Decimal          @db.Decimal(12, 2)
+  bankCode      String
+  accountNumber String
+  reference     String           @unique
+  status        SettlementStatus @default(PENDING)
+  settledAt     DateTime?
+  createdAt     DateTime         @default(now())
+  operator      OperatorProfile  @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([operatorId, status])
+  @@map("settlement_records")
+}
+
+model Penalty {
+  id           String      @id @default(cuid())
+  orderId      String
+  type         PenaltyType
+  amount       Decimal     @db.Decimal(12, 2)
+  reason       String
+  isAppealed   Boolean     @default(false)
+  appealNote   String?
+  isOverridden Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, type])
+  @@map("penalties")
+}
+
+model IdleTimer {
+  id             String         @id @default(cuid())
+  orderId        String
+  stage          IdleTimerStage
+  startedAt      DateTime       @default(now())
+  graceEndsAt    DateTime
+  feeTriggeredAt DateTime?
+  endedAt        DateTime?
+  feeAmount      Decimal?       @db.Decimal(12, 2)
+  feeCharged     Boolean        @default(false)
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, stage])
+  @@map("idle_timers")
+}
+
+model LocationLog {
+  id         String        @id @default(cuid())
+  driverId   String
+  orderId    String?
+  latitude   Float
+  longitude  Float
+  accuracy   Float?
+  speed      Float?
+  heading    Float?
+  deviceId   String?
+  occurredAt DateTime
+  receivedAt DateTime      @default(now())
+  driver     DriverProfile @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order      Order?        @relation(fields: [orderId], references: [id])
+
+  @@index([driverId, occurredAt])
+  @@index([orderId, occurredAt])
+  @@map("location_logs")
+}
+
+model Dispute {
+  id           String        @id @default(cuid())
+  orderId      String        @unique
+  type         DisputeType
+  status       DisputeStatus @default(OPEN)
+  raisedById   String
+  raisedByRole Role
+  description  String
+  evidence     String[]
+  resolution   String?
+  resolvedById String?
+  resolvedAt   DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  order        Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  resolvedBy   AdminProfile? @relation(fields: [resolvedById], references: [id])
+
+  @@map("disputes")
+}
+
+model Rating {
+  id        String         @id @default(cuid())
+  orderId   String
+  driverId  String
+  score     Int
+  comment   String?
+  category  RatingCategory @default(OVERALL)
+  createdAt DateTime       @default(now())
+  driver    DriverProfile  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  order     Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([driverId, category])
+  @@map("ratings")
+}
+
+model BankAccount {
+  id            String           @id @default(cuid())
+  operatorId    String?          @unique
+  userId        String?          @unique
+  bankName      String
+  bankCode      String
+  accountName   String
+  accountNumber String
+  isVerified    Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  operator      OperatorProfile? @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  user          User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("bank_accounts")
+}
+
+model ChatSession {
+  id           String            @id @default(cuid())
+  type         ChatSessionType
+  orderId      String?           @unique
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  participants ChatParticipant[]
+  order        Order?            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@map("chat_sessions")
+}
+
+model ChatParticipant {
+  id         String      @id @default(cuid())
+  sessionId  String
+  userId     String
+  lastReadAt DateTime?
+  joinedAt   DateTime    @default(now())
+  session    ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@map("chat_participants")
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  senderId  String
+  content   String
+  type      MessageType @default(TEXT)
+  mediaUrl  String?
+  isRead    Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  sessionId String
+  sender    User        @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id     String           @id @default(cuid())
+  userId String
+  type   NotificationType
+  title  String
+  body   String
+  data   Json?
+  isRead Boolean          @default(false)
+  sentAt DateTime         @default(now())
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Announcement {
+  id          String    @id @default(cuid())
+  title       String
+  body        String
+  targetRoles Role[]
+  imageUrl    String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime?
+
+  @@map("announcements")
+}
+
+model BusinessApiKey {
+  id         String          @id @default(cuid())
+  businessId String
+  name       String
+  keyHash    String          @unique
+  prefix     String          @unique
+  status     ApiKeyStatus    @default(ACTIVE)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  business   BusinessProfile @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, status])
+  @@map("business_api_keys")
+}
+
+model WebhookEndpoint {
+  id         String                   @id @default(cuid())
+  businessId String
+  url        String
+  secret     String
+  events     WebhookEventType[]
+  isActive   Boolean                  @default(true)
+  createdAt  DateTime                 @default(now())
+  updatedAt  DateTime                 @updatedAt
+  deliveries WebhookDeliveryAttempt[]
+  business   BusinessProfile          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, isActive])
+  @@map("webhook_endpoints")
+}
+
+model WebhookDeliveryAttempt {
+  id                 String                @id @default(cuid())
+  endpointId         String
+  orderId            String?
+  event              WebhookEventType
+  payload            Json
+  status             WebhookDeliveryStatus @default(PENDING)
+  responseStatusCode Int?
+  responseBody       String?
+  attemptCount       Int                   @default(0)
+  nextRetryAt        DateTime?
+  deliveredAt        DateTime?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  endpoint           WebhookEndpoint       @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  order              Order?                @relation(fields: [orderId], references: [id])
+
+  @@index([endpointId, status])
+  @@index([orderId, event])
+  @@map("webhook_delivery_attempts")
+}
+
+model CallLog {
+  id                   String     @id @default(cuid())
+  orderId              String
+  initiatedById        String
+  recipientPhoneMasked String
+  providerReference    String?
+  recordingUrl         String?
+  status               CallStatus @default(INITIATED)
+  startedAt            DateTime   @default(now())
+  endedAt              DateTime?
+  initiatedBy          User       @relation("InitiatedCalls", fields: [initiatedById], references: [id], onDelete: Cascade)
+  order                Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, startedAt])
+  @@map("call_logs")
+}
+
+model OrderIssue {
+  id                String           @id @default(cuid())
+  orderId           String
+  driverId          String?
+  operatorId        String?
+  type              OrderIssueType
+  status            OrderIssueStatus @default(OPEN)
+  description       String
+  metadata          Json?
+  resolvedByAdminId String?
+  reportedAt        DateTime         @default(now())
+  resolvedAt        DateTime?
+  driver            DriverProfile?   @relation(fields: [driverId], references: [id])
+  operator          OperatorProfile? @relation(fields: [operatorId], references: [id])
+  order             Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  resolvedByAdmin   AdminProfile?    @relation("ResolvedIssues", fields: [resolvedByAdminId], references: [id])
+
+  @@index([orderId, status])
+  @@index([driverId, type])
+  @@map("order_issues")
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, code])
+  @@map("verification_codes")
+}
+
+model PlatformSettings {
+  id                String   @id @default(cuid())
+  commissionRate    Decimal  @default(15.00) @db.Decimal(5, 2)
+  maxDeliveryRadius Decimal  @default(50.00) @db.Decimal(5, 2)
+  maintenanceMode   Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+
+  @@map("platform_settings")
+}
+
+enum Role {
+  USER
+  DRIVER
+  OPERATOR
+  ADMIN
+}
+
+enum OrderStatus {
+  CREATED
+  BROADCAST
+  ACCEPTED
+  ASSIGNED
+  ARRIVED_PICKUP
+  PICKED_UP
+  IN_TRANSIT
+  ARRIVED_DESTINATION
+  DELIVERED
+  CANCELLED
+  FAILED
+  RETURNED
+  SCHEDULED
+}
+
+enum VehicleType {
+  BICYCLE
+  BIKE
+  CAR
+  VAN
+  TRUCK
+  TRICYCLE
+}
+
+enum PackageSensitivity {
+  STANDARD
+  FRAGILE
+  KEEP_UPRIGHT
+  COLD_CHAIN
+  HIGH_VALUE
+}
+
+enum UrgencyTier {
+  STANDARD
+  EXPRESS
+  SCHEDULED
+}
+
+enum PaymentStatus {
+  PENDING
+  ESCROWED
+  RELEASED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentProvider {
+  PAYSTACK
+  MONNIFY
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+enum DisputeType {
+  PACKAGE_NOT_RECEIVED
+  ITEM_DAMAGED
+  LATE_DELIVERY
+  WRONG_ITEM
+  OTHER
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DriverStatus {
+  IDLE
+  ACTIVE
+  OFFLINE
+}
+
+enum NotificationType {
+  ORDER_CREATED
+  ORDER_ACCEPTED
+  DRIVER_ASSIGNED
+  ARRIVED_PICKUP
+  IN_TRANSIT
+  DELIVERED
+  DISPATCH_DELAY
+  IDLE_FEE_WARNING
+  IDLE_FEE_CHARGED
+  TIME_DAMAGE_CHARGED
+  DISPUTE_OPENED
+  DISPUTE_RESOLVED
+  PAYMENT_RELEASED
+  ANNOUNCEMENT
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  SYSTEM
+  AUDIO
+}
+
+enum ChatSessionType {
+  ORDER
+  DIRECT
+  SUPPORT
+}
+
+enum PenaltyType {
+  TIME_DAMAGE
+  IDLE_FEE
+}
+
+enum CounterOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+  ESCROW_HOLD
+  ESCROW_RELEASE
+  REFUND
+  PENALTY
+  PLATFORM_FEE
+  SETTLEMENT
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+enum IdleTimerStage {
+  PICKUP
+  DROPOFF
+}
+
+enum AdminLevel {
+  STANDARD
+  SUPER
+}
+
+enum DocumentType {
+  DRIVER_LICENSE
+  NIN
+  ADDRESS_VERIFICATION
+  BUSINESS_REGISTRATION
+  VEHICLE_INSURANCE
+  VEHICLE_REGISTRATION
+  OPERATOR_REGISTRATION
+  OTHER
+}
+
+enum DriverAssignmentStatus {
+  ACTIVE
+  REASSIGNED
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderIssueType {
+  VEHICLE_BREAKDOWN
+  RECIPIENT_UNAVAILABLE
+  SENDER_DELAY
+  RECIPIENT_DELAY
+  TRAFFIC
+  ROAD_CLOSURE
+  WEATHER
+  ITEM_EXCEPTION
+  OTHER
+}
+
+enum OrderIssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+enum WebhookEventType {
+  ORDER_CREATED
+  ORDER_ACCEPTED
+  DRIVER_ASSIGNED
+  ORDER_STATUS_CHANGED
+  ORDER_DELAYED
+  ORDER_DELIVERED
+  PAYMENT_ESCROWED
+  PAYMENT_RELEASED
+  DISPUTE_OPENED
+  DISPUTE_RESOLVED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum CallStatus {
+  INITIATED
+  CONNECTED
+  MISSED
+  FAILED
+  ENDED
+}
+
+enum RatingCategory {
+  OVERALL
+  HANDLING
+  PUNCTUALITY
+  COMMUNICATION
+}
+
+enum DeliveryVerificationMethod {
+  OTP
+  SIGNATURE
+  OTP_AND_SIGNATURE
+  ADMIN_OVERRIDE
+}
+
+enum AuthProvider {
+  LOCAL
+  GOOGLE
+  APPLE
+}
+
+enum SignupChannel {
+  MOBILE_APP
+  WEB_DASHBOARD
+  INVITE
+}
+
+enum OnboardingStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
