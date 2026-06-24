@@ -46,10 +46,7 @@ export class BusinessOrdersService {
         vehicles: {
           some: {
             vehicleType: payload.vehicleType,
-            isActive: true,
-            drivers: {
-              some: {}
-            }
+            isActive: true
           }
         },
         pricingConfigs: {
