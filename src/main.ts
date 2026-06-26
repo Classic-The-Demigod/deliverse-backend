@@ -33,8 +33,25 @@ async function bootstrap() {
 
   // CORS Configuration
   const corsOrigin = configService.get<string>('CORS_ORIGIN', '');
+  const origins = corsOrigin ? corsOrigin.split(',').map(o => o.trim()) : [];
+  
   app.enableCors({
-    origin: corsOrigin ? (corsOrigin.includes(',') ? corsOrigin.split(',') : corsOrigin) : true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) {
+        return callback(null, true);
+      }
+      // If no CORS_ORIGIN is set, allow all
+      if (origins.length === 0) {
+        return callback(null, true);
+      }
+      // Allow if origin is in the allowed list, or is localhost, or is a vercel app
+      if (origins.includes(origin) || origin.startsWith('http://localhost:') || origin.endsWith('.vercel.app')) {
+        return callback(null, true);
+      }
+      // Otherwise, reject
+      callback(new Error('Not allowed by CORS'), false);
+    },
     credentials: true,
   });
 
