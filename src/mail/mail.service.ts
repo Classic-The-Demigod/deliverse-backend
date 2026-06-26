@@ -19,6 +19,9 @@ export class MailService {
   }
 
   async sendVerificationEmail(email: string, code: string): Promise<void> {
+    // Helpful for testing when Resend is unavailable or restricted
+    this.logger.debug(`\n🔑 [OTP LOG] Verification code for ${email} is: ${code}\n`);
+
     try {
       const html = await render(React.createElement(VerificationEmail, { code }));
       
@@ -36,6 +39,9 @@ export class MailService {
   }
 
   async sendPasswordResetEmail(email: string, code: string): Promise<void> {
+    // Helpful for testing when Resend is unavailable or restricted
+    this.logger.debug(`\n🔑 [OTP LOG] Password reset code for ${email} is: ${code}\n`);
+
     try {
       const html = await render(React.createElement(PasswordResetEmail, { code }));
       
@@ -53,6 +59,9 @@ export class MailService {
   }
 
   async sendDriverInvitationEmail(email: string, operatorName: string, inviteToken: string): Promise<void> {
+    // Helpful for testing when Resend is unavailable or restricted
+    this.logger.debug(`\n💌 [INVITE LOG] Driver invite token for ${email} from ${operatorName} is: ${inviteToken}\n`);
+
     try {
       const html = await render(React.createElement(DriverInvitationEmail, { operatorName, inviteToken }));
       
