@@ -14,6 +14,8 @@ import {
   IsDecimal,
   IsNotEmpty,
   ValidateIf,
+  Length,
+  IsNumberString,
 } from 'class-validator';
 import { PackageSensitivity, UrgencyTier, VehicleType } from '@prisma/client';
 
@@ -82,11 +84,13 @@ export class CreateOrderDto {
   specialInstructions?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNumberString()
+  @Length(4, 4)
   pickupPasscode?: string;
 
   @IsOptional()
-  @IsString()
+  @IsNumberString()
+  @Length(4, 4)
   dropoffPasscode?: string;
 
   @IsOptional()
