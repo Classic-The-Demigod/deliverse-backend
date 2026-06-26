@@ -28,8 +28,8 @@ import type { Response } from 'express';
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'lax' as const,
+  secure: true, // Must be true for sameSite: 'none'
+  sameSite: 'none' as const, // Allows cross-domain cookies for Vercel <-> Backend
   path: '/',
 };
 
