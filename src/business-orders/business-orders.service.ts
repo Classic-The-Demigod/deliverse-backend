@@ -163,6 +163,8 @@ export class BusinessOrdersService {
           specialInstructions: payload.specialInstructions,
           pickupPasscode: payload.pickupPasscode,
           dropoffPasscode: payload.dropoffPasscode,
+          customOrderCategory: payload.customOrderCategory,
+          orderReference: payload.orderReference,
           pickupAddress: payload.pickupAddress,
           pickupLatitude: payload.pickupLatitude,
           pickupLongitude: payload.pickupLongitude,

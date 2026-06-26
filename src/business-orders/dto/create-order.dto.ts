@@ -89,6 +89,14 @@ export class CreateOrderDto {
   @IsString()
   dropoffPasscode?: string;
 
+  @IsOptional()
+  @IsString()
+  customOrderCategory?: string;
+
+  @IsOptional()
+  @IsString()
+  orderReference?: string;
+
   // Pickup
   @IsString()
     pickupAddress!: string;

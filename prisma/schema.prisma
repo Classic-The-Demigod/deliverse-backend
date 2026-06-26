@@ -372,6 +372,8 @@ model Order {
   delayReason          String?
   isDelayed            Boolean                  @default(false)
   driverAccepted       Boolean                  @default(false)
+  customOrderCategory  String?
+  orderReference       String?
   callLogs             CallLog[]
   chatSession          ChatSession?
   dispute              Dispute?

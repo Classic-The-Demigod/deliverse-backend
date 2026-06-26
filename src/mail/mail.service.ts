@@ -12,7 +12,7 @@ import CounterOfferEmail from './templates/counter-offer-email';
 export class MailService {
   private readonly logger = new Logger(MailService.name);
   private readonly resend: Resend;
-  private readonly fromEmail = 'onboarding@resend.dev'; // Resend testing default
+  private readonly fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
   constructor() {
     this.resend = new Resend(process.env.RESEND_API_KEY || 're_A7ajz8ch_Mv5tANQbg7C9QyYAduSix2k9');
