@@ -19,7 +19,7 @@ export class UploadsController {
 
     // You can enforce file type checks here
     const allowedMimeTypes = [
-      'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf',
       'audio/m4a', 'audio/mp4', 'audio/aac', 'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/x-m4a'
     ];
     if (!allowedMimeTypes.includes(file.mimetype) && !file.mimetype.startsWith('audio/')) {
