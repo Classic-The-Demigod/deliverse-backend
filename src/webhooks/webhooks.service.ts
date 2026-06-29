@@ -1,40 +1,87 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
-import { PaymentProvider } from '@prisma/client';
+import { PaymentProvider, WebhookDeliveryStatus, WebhookEventType } from '@prisma/client';
 import * as crypto from 'crypto';
+import axios from 'axios';
+import { globalEventEmitter } from '../common/events/global-event-emitter';
 
 @Injectable()
-export class WebhooksService {
+export class WebhooksService implements OnModuleInit {
+  private readonly logger = new Logger(WebhooksService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {}
 
-  createEndpoint(payload: Record<string, unknown>) {
-    return {
-      module: 'webhooks',
-      action: 'create-endpoint',
-      status: 'scaffolded',
-      payload,
-    };
+  onModuleInit() {
+    globalEventEmitter.on('order.status.updated', async (eventData) => {
+      this.logger.log(`Intercepted order status update for ${eventData.orderId} to ${eventData.newStatus}, dispatching webhook...`);
+      await this.dispatchOrderWebhook(eventData.orderId, 'ORDER_STATUS_CHANGED', eventData.payload);
+    });
   }
 
-  listEndpoints() {
-    return {
-      module: 'webhooks',
-      action: 'list-endpoints',
-      status: 'scaffolded',
-    };
-  }
+  async dispatchOrderWebhook(orderId: string, event: WebhookEventType, payload: any) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: {
+        user: {
+          include: { businessProfile: true }
+        }
+      }
+    });
 
-  listDeliveries(endpointId: string) {
-    return {
-      module: 'webhooks',
-      action: 'list-deliveries',
-      endpointId,
-      status: 'scaffolded',
-    };
+    if (!order || !order.user.businessProfile) return;
+
+    const endpoints = await this.prisma.webhookEndpoint.findMany({
+      where: { 
+        businessId: order.user.businessProfile.id,
+        isActive: true,
+      }
+    });
+
+    for (const endpoint of endpoints) {
+      // Create delivery attempt record
+      const delivery = await this.prisma.webhookDeliveryAttempt.create({
+        data: {
+          endpointId: endpoint.id,
+          event,
+          status: WebhookDeliveryStatus.PENDING,
+          payload: payload,
+        }
+      });
+
+      try {
+        const signature = crypto.createHmac('sha512', endpoint.secret).update(JSON.stringify(payload)).digest('hex');
+        const response = await axios.post(endpoint.url, payload, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Deliverse-Signature': signature,
+            'X-Deliverse-Event': event,
+          },
+          timeout: 10000,
+        });
+
+        await this.prisma.webhookDeliveryAttempt.update({
+          where: { id: delivery.id },
+          data: {
+            status: WebhookDeliveryStatus.SUCCESS,
+            responseStatusCode: response.status,
+            responseBody: JSON.stringify(response.data),
+          }
+        });
+      } catch (error: any) {
+        await this.prisma.webhookDeliveryAttempt.update({
+          where: { id: delivery.id },
+          data: {
+            status: WebhookDeliveryStatus.FAILED,
+            responseStatusCode: error.response?.status || 500,
+            responseBody: error.response?.data ? JSON.stringify(error.response.data) : error.message,
+          }
+        });
+      }
+    }
   }
 
   async handlePaystackWebhook(signature: string, payload: any) {
@@ -127,6 +174,18 @@ export class WebhooksService {
       await tx.order.update({
         where: { id: payment.orderId },
         data: { status: nextStatus, ...acceptedData },
+      });
+
+      await tx.orderStatusEvent.create({
+        data: {
+          orderId: payment.orderId,
+          fromStatus: payment.order.status,
+          toStatus: nextStatus,
+          actorId: payment.order.userId,
+          actorRole: 'USER',
+          notes: `Payment verified. Order status updated to ${nextStatus}.`,
+          occurredAt: new Date(),
+        },
       });
 
       // 3. Save Card if reusable

@@ -1,4 +1,5 @@
-import { IsEmail, IsOptional, IsPhoneNumber, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsOptional, IsPhoneNumber, IsString, IsUrl, MinLength } from 'class-validator';
+import { BusinessCategory } from '@prisma/client';
 
 export class BusinessSignupDto {
   @IsEmail()
@@ -25,4 +26,10 @@ export class BusinessSignupDto {
 
   @IsString()
   address!: string;
+
+  @IsUrl({ require_tld: false })
+  website!: string;
+
+  @IsEnum(BusinessCategory)
+  category!: BusinessCategory;
 }

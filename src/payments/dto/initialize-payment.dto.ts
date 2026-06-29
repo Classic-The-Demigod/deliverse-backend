@@ -19,4 +19,8 @@ export class InitializePaymentDto {
   @IsOptional()
   @IsUUID()
   savedCardId?: string;
+
+  @IsOptional()
+  @IsString()
+  callbackUrl?: string;
 }

@@ -183,7 +183,10 @@ export class AuthService {
             businessName: payload.businessName.trim(),
             contactName: payload.contactName?.trim(),
             address: payload.address.trim(),
+            website: payload.website.trim(),
+            category: payload.category,
             onboardingStatus: OnboardingStatus.DRAFT,
+            isApproved: true, // Auto-approved for MVP
           },
         },
       },

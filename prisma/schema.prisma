@@ -69,6 +69,9 @@ model BusinessProfile {
   contactName           String?
   address               String
   logoUrl               String?
+  website               String
+  allowedDomains        String[]          @default([])
+  category              BusinessCategory  @default(OTHER)
   isApproved            Boolean           @default(false)
   onboardingStatus      OnboardingStatus  @default(DRAFT)
   onboardingSubmittedAt DateTime?
@@ -1117,4 +1120,15 @@ enum InvitationStatus {
   ACCEPTED
   EXPIRED
   REVOKED
+}
+
+enum BusinessCategory {
+  RESTAURANT
+  PHARMACY
+  GROCERIES
+  FASHION
+  ELECTRONICS
+  HEALTH_BEAUTY
+  RETAIL
+  OTHER
 }

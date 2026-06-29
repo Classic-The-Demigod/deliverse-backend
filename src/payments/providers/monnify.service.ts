@@ -35,7 +35,7 @@ export class MonnifyService {
     }
   }
 
-  async initializePayment(email: string, amountKobo: number, reference: string) {
+  async initializePayment(email: string, amountKobo: number, reference: string, callbackUrl?: string) {
     const token = await this.getAccessToken();
     const amountNaira = amountKobo / 100; // Monnify takes amount in major currency
 
@@ -51,6 +51,7 @@ export class MonnifyService {
           currencyCode: 'NGN',
           contractCode: this.contractCode,
           paymentMethods: ['CARD', 'ACCOUNT_TRANSFER', 'USSD'],
+          redirectUrl: callbackUrl,
         },
         {
           headers: {

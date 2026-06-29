@@ -75,9 +75,9 @@ export class PaymentsService {
     // 3. Handle New Card / Initialization Flow
     let result;
     if (payload.provider === PaymentProvider.PAYSTACK) {
-      result = await this.paystackService.initializePayment(email, amountKobo, reference);
+      result = await this.paystackService.initializePayment(email, amountKobo, reference, payload.callbackUrl);
     } else {
-      result = await this.monnifyService.initializePayment(email, amountKobo, reference);
+      result = await this.monnifyService.initializePayment(email, amountKobo, reference, payload.callbackUrl);
     }
 
     // Save the pending payment to DB to track the reference

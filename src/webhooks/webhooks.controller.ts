@@ -8,23 +8,7 @@ import { WebhooksService } from './webhooks.service';
 export class WebhooksController {
   constructor(private readonly webhooksService: WebhooksService) {}
 
-  @Roles(Role.USER)
-  @Post('endpoints')
-  createEndpoint(@Body() payload: Record<string, unknown>) {
-    return this.webhooksService.createEndpoint(payload);
-  }
-
-  @Roles(Role.USER)
-  @Get('endpoints')
-  listEndpoints() {
-    return this.webhooksService.listEndpoints();
-  }
-
-  @Roles(Role.USER)
-  @Get('endpoints/:endpointId/deliveries')
-  listDeliveries(@Param('endpointId') endpointId: string) {
-    return this.webhooksService.listDeliveries(endpointId);
-  }
+  // Webhook Endpoints management is handled in DeveloperController
 
   @Public()
   @Post('paystack')

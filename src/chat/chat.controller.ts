@@ -2,7 +2,7 @@ import { Controller, Post, Get, Body, Param, UseGuards, Query } from '@nestjs/co
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { ChatSessionType, Role } from '@prisma/client';
+import { ChatSessionType, Role, MessageType } from '@prisma/client';
 
 @Controller('chat')
 @UseGuards(JwtAuthGuard)
@@ -31,5 +31,20 @@ export class ChatController {
     @Query('take') take?: string,
   ) {
     return this.chatService.getMessages(sessionId, user.userId, skip ? parseInt(skip) : 0, take ? parseInt(take) : 50);
+  }
+
+  @Post('sessions/:sessionId/messages')
+  sendMessage(
+    @CurrentUser() user: { userId: string },
+    @Param('sessionId') sessionId: string,
+    @Body() body: { content: string; type?: MessageType; mediaUrl?: string },
+  ) {
+    return this.chatService.saveMessage(
+      sessionId,
+      user.userId,
+      body.content,
+      body.type || MessageType.TEXT,
+      body.mediaUrl,
+    );
   }
 }

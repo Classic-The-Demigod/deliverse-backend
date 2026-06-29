@@ -24,6 +24,7 @@ import { OperatorFleetModule } from './operator-fleet/operator-fleet.module';
 import { OperatorSettingsModule } from './operator-settings/operator-settings.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AppController } from './app.controller';
+import { DeveloperModule } from './developer/developer.module';
 import { AppService } from './app.service';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
@@ -62,6 +63,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
     ChatModule,
     OperatorFleetModule,
     OperatorSettingsModule,
+    DeveloperModule,
   ],
   controllers: [AppController],
   providers: [

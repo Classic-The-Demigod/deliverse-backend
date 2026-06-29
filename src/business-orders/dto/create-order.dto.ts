@@ -76,6 +76,11 @@ export class CreateOrderDto {
   declaredItemValue?: number;
 
   @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  itemCost?: number;
+
+  @IsOptional()
   @IsString()
   handlingNotes?: string;
 
@@ -84,11 +89,13 @@ export class CreateOrderDto {
   specialInstructions?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.pickupPasscode && o.pickupPasscode !== '')
   @IsNumberString()
   @Length(4, 4)
   pickupPasscode?: string;
 
   @IsOptional()
+  @ValidateIf((o) => o.dropoffPasscode && o.dropoffPasscode !== '')
   @IsNumberString()
   @Length(4, 4)
   dropoffPasscode?: string;

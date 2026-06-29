@@ -12,7 +12,7 @@ export class PaystackService {
     this.secretKey = this.configService.get<string>('PAYSTACK_SECRET_KEY') || 'sk_test_placeholder';
   }
 
-  async initializePayment(email: string, amountKobo: number, reference: string) {
+  async initializePayment(email: string, amountKobo: number, reference: string, callbackUrl?: string) {
     try {
       const response = await axios.post(
         `${this.baseUrl}/transaction/initialize`,
@@ -21,6 +21,7 @@ export class PaystackService {
           amount: amountKobo,
           reference,
           channels: ['card', 'bank', 'ussd', 'qr', 'mobile_money', 'bank_transfer'],
+          callback_url: callbackUrl,
         },
         {
           headers: {

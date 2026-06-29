@@ -189,8 +189,14 @@ export class AuthController {
 
   @Public()
   @Post('verify-email')
-  verifyEmail(@Body() payload: VerifyEmailDto) {
-    return this.authService.verifyEmail(payload);
+  async verifyEmail(
+    @Body() payload: VerifyEmailDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const data = await this.authService.verifyEmail(payload);
+    res.cookie('accessToken', data.accessToken, COOKIE_OPTIONS);
+    res.cookie('refreshToken', data.refreshToken, COOKIE_OPTIONS);
+    return data;
   }
 
   @Public()
