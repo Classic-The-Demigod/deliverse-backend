@@ -17,8 +17,8 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendCodeDto } from './dto/resend-code.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { DriverLoginDto } from './dto/driver-login.dto';
-import { DriverVerifyOtpDto } from './dto/driver-verify-otp.dto';
+import { DriverInviteSetupDto } from './dto/driver-invite-setup.dto';
+import { DriverVerifySetupDto } from './dto/driver-verify-setup.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { InitiateOperatorSignupDto } from './dto/initiate-operator-signup.dto';
 import { SetOperatorPasswordDto } from './dto/set-operator-password.dto';
@@ -158,18 +158,18 @@ export class AuthController {
   }
 
   @Public()
-  @Post('driver/login')
-  driverLogin(@Body() payload: DriverLoginDto) {
-    return this.authService.driverLogin(payload);
+  @Post('driver/invite-setup')
+  driverInviteSetup(@Body() payload: DriverInviteSetupDto) {
+    return this.authService.driverInviteSetup(payload);
   }
 
   @Public()
-  @Post('driver/verify-otp')
-  async driverVerifyOtp(
-    @Body() payload: DriverVerifyOtpDto,
+  @Post('driver/verify-setup')
+  async driverVerifySetup(
+    @Body() payload: DriverVerifySetupDto,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const data = await this.authService.driverVerifyOtp(payload);
+    const data = await this.authService.driverVerifySetup(payload);
     res.cookie('accessToken', data.accessToken, COOKIE_OPTIONS);
     res.cookie('refreshToken', data.refreshToken, COOKIE_OPTIONS);
     return data;

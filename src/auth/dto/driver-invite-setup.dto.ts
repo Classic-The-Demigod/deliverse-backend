@@ -1,6 +1,6 @@
 import { IsEmail } from 'class-validator';
 
-export class DriverLoginDto {
+export class DriverInviteSetupDto {
   @IsEmail()
   email!: string;
 }

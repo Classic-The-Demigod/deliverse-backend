@@ -36,8 +36,8 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 import { ResendCodeDto } from './dto/resend-code.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { DriverLoginDto } from './dto/driver-login.dto';
-import { DriverVerifyOtpDto } from './dto/driver-verify-otp.dto';
+import { DriverInviteSetupDto } from './dto/driver-invite-setup.dto';
+import { DriverVerifySetupDto } from './dto/driver-verify-setup.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { InitiateOperatorSignupDto } from './dto/initiate-operator-signup.dto';
 import { SetOperatorPasswordDto } from './dto/set-operator-password.dto';
@@ -797,7 +797,7 @@ export class AuthService {
     };
   }
 
-  async driverLogin(payload: DriverLoginDto) {
+  async driverInviteSetup(payload: DriverInviteSetupDto) {
     let user = await this.prisma.user.findUnique({
       where: { email: payload.email.toLowerCase() },
     });
@@ -839,7 +839,7 @@ export class AuthService {
     };
   }
 
-  async driverVerifyOtp(payload: DriverVerifyOtpDto) {
+  async driverVerifySetup(payload: DriverVerifySetupDto) {
     const user = await this.prisma.user.findUnique({
       where: { email: payload.email.toLowerCase() },
     });
@@ -867,12 +867,14 @@ export class AuthService {
       data: { isUsed: true },
     });
 
-    if (!user.isVerified) {
-      await this.prisma.user.update({
-        where: { id: user.id },
-        data: { isVerified: true, emailVerifiedAt: new Date() },
-      });
-    }
+    const passwordHash = await argon2.hash(payload.password);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash,
+        ...(!user.isVerified ? { isVerified: true, emailVerifiedAt: new Date() } : {})
+      },
+    });
 
     // Check if they have a DriverProfile
     let driverProfile = await this.prisma.driverProfile.findUnique({
