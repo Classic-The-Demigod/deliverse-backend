@@ -15,6 +15,11 @@ export class OperatorSettingsController {
     return this.operatorSettingsService.getProfile(userId);
   }
 
+  @Get('platform-fee')
+  getPlatformFee() {
+    return this.operatorSettingsService.getPlatformFee();
+  }
+
   @Patch('business')
   updateBusiness(
     @CurrentUser('userId') userId: string,

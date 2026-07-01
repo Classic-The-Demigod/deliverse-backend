@@ -7,7 +7,8 @@ export class DriverAnalyticsService {
 
   async getAnalytics(userId: string) {
     const driver = await this.prisma.driverProfile.findUnique({
-      where: { userId }
+      where: { userId },
+      include: { operator: true }
     });
 
     if (!driver) {
@@ -45,8 +46,9 @@ export class DriverAnalyticsService {
         o.actualDeliveredAt && o.actualDeliveredAt.toISOString().startsWith(dateStr)
       );
       
-      // Calculate earnings from the orders (assuming 80% driver cut for test display if wallet txns don't exist)
-      const orderEarnings = dayOrders.reduce((sum, order) => sum + (Number(order.finalPrice || 0) * 0.8), 0);
+      // Calculate display earnings based on the Operator's configured visual percentage
+      const percentageMultiplier = (driver.operator?.driverEarningsDisplayPercentage || 0) / 100;
+      const orderEarnings = dayOrders.reduce((sum, order) => sum + (Number(order.finalPrice || 0) * percentageMultiplier), 0);
 
       return { date: dateStr, amount: orderEarnings, count: dayOrders.length };
     });

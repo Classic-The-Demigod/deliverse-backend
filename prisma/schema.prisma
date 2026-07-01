@@ -101,6 +101,7 @@ model OperatorProfile {
   kycStatus             KycStatus             @default(PENDING)
   trustScore            Float                 @default(100)
   isSuspended           Boolean               @default(false)
+  driverEarningsDisplayPercentage Float       @default(0)
   bankCode              String?
   bankAccountNumber     String?
   bankAccountName       String?

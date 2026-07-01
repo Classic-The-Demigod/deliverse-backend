@@ -44,7 +44,15 @@ export class PaymentsService {
       throw new BadRequestException('Order cannot be paid for in its current state.');
     }
 
-    const amountKobo = Math.round(order.quotedPrice.toNumber() * 100);
+    const payment = await this.prisma.payment.findUnique({
+      where: { orderId: order.id }
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment record not found for this order.');
+    }
+
+    const amountKobo = Math.round(payment.amount.toNumber() * 100);
     const email = order.user.email;
     const reference = `DLV_${order.orderNumber}_${Date.now()}`;
 
@@ -80,25 +88,12 @@ export class PaymentsService {
       result = await this.monnifyService.initializePayment(email, amountKobo, reference, payload.callbackUrl);
     }
 
-    // Save the pending payment to DB to track the reference
-    await this.prisma.payment.upsert({
-      where: { orderId: order.id },
-      update: {
-        amount: order.quotedPrice,
-        platformFee: 0,
-        operatorAmount: order.quotedPrice,
+    // Save the provider reference to DB
+    await this.prisma.payment.update({
+      where: { id: payment.id },
+      data: {
         provider: payload.provider,
         providerReference: reference,
-        status: 'PENDING',
-      },
-      create: {
-        orderId: order.id,
-        amount: order.quotedPrice,
-        platformFee: 0,
-        operatorAmount: order.quotedPrice,
-        provider: payload.provider,
-        providerReference: reference,
-        status: 'PENDING',
       },
     });
 

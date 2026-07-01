@@ -51,10 +51,16 @@ export class OperatorSettingsService {
         ...(payload.companyName !== undefined && { companyName: payload.companyName }),
         ...(payload.rcNumber !== undefined && { rcNumber: payload.rcNumber }),
         ...(payload.address !== undefined && { address: payload.address }),
+        ...(payload.driverEarningsDisplayPercentage !== undefined && { driverEarningsDisplayPercentage: payload.driverEarningsDisplayPercentage }),
       },
     });
 
     return { message: 'Business profile updated.', operator: updated };
+  }
+
+  async getPlatformFee() {
+    // Currently hardcoded to 3% as per backend pricing logic.
+    return { platformFeeRate: 0.03 };
   }
 
   async listBanks() {

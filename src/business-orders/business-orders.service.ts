@@ -194,9 +194,9 @@ export class BusinessOrdersService {
       await tx.payment.create({
         data: {
           orderId: created.id,
-          amount: quotedPrice.add(itemCostAmount),
+          amount: quotedPrice.mul(1 + PLATFORM_FEE_RATE).add(itemCostAmount),
           platformFee: quotedPrice.mul(PLATFORM_FEE_RATE),
-          operatorAmount: quotedPrice.mul(1 - PLATFORM_FEE_RATE),
+          operatorAmount: quotedPrice,
           status: PaymentStatus.PENDING,
         },
       });
@@ -531,8 +531,8 @@ export class BusinessOrdersService {
           await tx.payment.update({
             where: { id: order.payment.id },
             data: {
-              amount: counterPrice,
-              operatorAmount: counterPrice.mul(1 - PLATFORM_FEE_RATE),
+              amount: counterPrice.mul(1 + PLATFORM_FEE_RATE),
+              operatorAmount: counterPrice,
               platformFee: counterPrice.mul(PLATFORM_FEE_RATE),
             },
           });
@@ -617,7 +617,7 @@ export class BusinessOrdersService {
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const PLATFORM_FEE_RATE = 0.1; // 10% — move to config service later
+const PLATFORM_FEE_RATE = 0.03; // 3% — move to config service later
 
 // ---------------------------------------------------------------------------
 // Helpers

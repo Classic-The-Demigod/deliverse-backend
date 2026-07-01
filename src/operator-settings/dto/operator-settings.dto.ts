@@ -12,6 +12,10 @@ export class UpdateOperatorBusinessDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @IsOptional()
+  @IsNumber()
+  driverEarningsDisplayPercentage?: number;
 }
 
 export class LinkBankDto {

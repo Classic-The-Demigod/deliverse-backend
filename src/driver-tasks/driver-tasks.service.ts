@@ -404,35 +404,17 @@ export class DriverTasksService {
               }
             });
 
-            // Calculate 80/20 split
+            // Calculate 100% payout to operator
             const totalAmount = Number(order.payment.operatorAmount);
-            const driverShare = totalAmount * 0.8;
-            const operatorShare = totalAmount * 0.2;
 
-            // Credit driver with 80%
-            await tx.wallet.update({
-              where: { id: driverWallet.id },
-              data: {
-                balance: { increment: driverShare },
-                transactions: {
-                  create: {
-                    amount: driverShare,
-                    type: WalletTransactionType.CREDIT,
-                    description: `Earnings for order ${orderId}`,
-                    reference: orderId,
-                  }
-                }
-              }
-            });
-
-            // Credit operator with 20%
+            // Credit operator with 100% of the proceeds
             await tx.wallet.update({
               where: { id: operatorWallet.id },
               data: {
-                balance: { increment: operatorShare },
+                balance: { increment: totalAmount },
                 transactions: {
                   create: {
-                    amount: operatorShare,
+                    amount: totalAmount,
                     type: WalletTransactionType.CREDIT,
                     description: `Earnings for order ${orderId}`,
                     reference: orderId,

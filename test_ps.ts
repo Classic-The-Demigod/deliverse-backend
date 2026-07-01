@@ -1,0 +1,1 @@
+﻿import { PaystackService } from './src/payments/providers/paystack.service'; import { ConfigService } from '@nestjs/config'; async function test() { const ps = new PaystackService(new ConfigService()); console.log(await ps.listBanks()); } test();
