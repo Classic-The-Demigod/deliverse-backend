@@ -24,19 +24,28 @@ export class PrismaService
 
     super({ adapter });
 
-    // Prisma Middleware to intercept order status changes and emit global events for Webhooks
-    (this as any).$use(async (params: any, next: any) => {
-      const result = await next(params);
-      if (params.model === 'Order' && params.action === 'update') {
-        if (params.args.data && params.args.data.status) {
-          globalEventEmitter.emit('order.status.updated', {
-            orderId: result.id,
-            newStatus: result.status,
-            payload: result
-          });
-        }
-      }
-      return result;
+    // Replace deprecated $use middleware with Prisma Client Extensions for webhook events
+    const extended = (this as any).$extends({
+      query: {
+        order: {
+          async update({ args, query }: any) {
+            const result = await query(args);
+            if (args.data && args.data.status) {
+              globalEventEmitter.emit('order.status.updated', {
+                orderId: result.id,
+                newStatus: result.status,
+                payload: result,
+              });
+            }
+            return result;
+          },
+        },
+      },
+    });
+
+    // Override the order model delegate with the extended version bypassing getter restrictions
+    Object.defineProperty(this, 'order', {
+      get: () => extended.order,
     });
   }
 
