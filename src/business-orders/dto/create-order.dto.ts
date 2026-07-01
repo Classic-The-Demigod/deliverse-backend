@@ -75,10 +75,7 @@ export class CreateOrderDto {
   @IsPositive()
   declaredItemValue?: number;
 
-  @IsOptional()
-  @IsNumber()
-  @IsPositive()
-  itemCost?: number;
+
 
   @IsOptional()
   @IsString()

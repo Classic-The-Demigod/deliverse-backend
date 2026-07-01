@@ -335,7 +335,6 @@ export class DriverTasksService {
         dropoffLongitude: true, 
         operatorId: true,
         userId: true,
-        itemCost: true,
         payment: true 
       },
     });
@@ -422,25 +421,6 @@ export class DriverTasksService {
                 }
               }
             });
-
-            // Reimburse business for the item cost
-            const itemCostNum = Number(order.itemCost || 0);
-            if (itemCostNum > 0) {
-              await tx.wallet.update({
-                where: { id: userWallet.id },
-                data: {
-                  balance: { increment: itemCostNum },
-                  transactions: {
-                    create: {
-                      amount: itemCostNum,
-                      type: WalletTransactionType.CREDIT,
-                      description: `Item cost reimbursement for order ${orderId}`,
-                      reference: orderId,
-                    }
-                  }
-                }
-              });
-            }
           }
 
         // Mark payment as RELEASED

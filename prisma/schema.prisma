@@ -328,7 +328,7 @@ model Order {
   heightCm             Float?
   description          String?
   declaredItemValue    Decimal?                 @db.Decimal(12, 2)
-  itemCost             Decimal?                 @db.Decimal(12, 2)
+
   handlingNotes        String?
   specialInstructions  String?
   pickupAddress        String

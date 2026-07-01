@@ -180,7 +180,6 @@ export class BusinessOrdersService {
             : null,
           distanceKm: payload.distanceKm,
           quotedPrice,
-          itemCost: payload.itemCost ? new Prisma.Decimal(payload.itemCost) : null,
           dispatchDeadline,
           estimatedDeliveryAt,
           // OTP is generated at assignment time, not creation
@@ -188,13 +187,11 @@ export class BusinessOrdersService {
         select: orderDetailSelect,
       });
 
-      const itemCostAmount = payload.itemCost || 0;
-
       // 2. Create payment record (PENDING until wallet escrow confirmed)
       await tx.payment.create({
         data: {
           orderId: created.id,
-          amount: quotedPrice.mul(1 + PLATFORM_FEE_RATE).add(itemCostAmount),
+          amount: quotedPrice.mul(1 + PLATFORM_FEE_RATE),
           platformFee: quotedPrice.mul(PLATFORM_FEE_RATE),
           operatorAmount: quotedPrice,
           status: PaymentStatus.PENDING,
