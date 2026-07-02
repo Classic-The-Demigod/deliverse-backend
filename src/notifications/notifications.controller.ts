@@ -28,7 +28,8 @@ export class NotificationsController {
   savePushToken(
     @CurrentUser('userId') userId: string,
     @Body('token') token: string,
+    @Body('provider') provider?: 'expo' | 'fcm',
   ) {
-    return this.notificationsService.savePushToken(userId, token);
+    return this.notificationsService.savePushToken(userId, token, provider || 'expo');
   }
 }

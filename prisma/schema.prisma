@@ -25,6 +25,7 @@ model User {
   gender              Gender?
   avatarUrl           String?
   expoPushToken       String?
+  fcmPushToken        String?
   notifyAnnouncements Boolean            @default(true)
   notifyDelivery      Boolean            @default(true)
   notifyDispatch      Boolean            @default(false)
