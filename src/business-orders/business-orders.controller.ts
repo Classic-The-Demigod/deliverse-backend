@@ -7,6 +7,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -22,6 +23,7 @@ import { GetQuoteDto } from './dto/get-quote.dto';
 export class BusinessOrdersController {
   constructor(private readonly businessOrdersService: BusinessOrdersService) {}
 
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('quote')
   getQuote(@Body() payload: GetQuoteDto) {
     return this.businessOrdersService.getQuote(payload);

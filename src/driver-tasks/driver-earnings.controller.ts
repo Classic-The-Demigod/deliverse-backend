@@ -32,11 +32,4 @@ export class DriverEarningsController {
     return this.driverEarningsService.linkBankAccount(userId, dto);
   }
 
-  @Post('withdraw')
-  withdraw(
-    @CurrentUser('userId') userId: string,
-    @Body() dto: { amount: number }
-  ) {
-    return this.driverEarningsService.withdrawFunds(userId, dto.amount);
-  }
 }

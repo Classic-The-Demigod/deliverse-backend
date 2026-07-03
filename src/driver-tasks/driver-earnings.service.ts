@@ -12,15 +12,12 @@ export class DriverEarningsService {
   async getEarnings(userId: string) {
     const driver = await this.prisma.driverProfile.findUnique({
       where: { userId },
+      include: { operator: true },
     });
 
     if (!driver) {
       throw new NotFoundException('Driver profile not found.');
     }
-
-    const wallet = await this.prisma.wallet.findUnique({
-      where: { userId },
-    });
 
     const bankAccount = await this.prisma.bankAccount.findUnique({
       where: { userId }
@@ -49,29 +46,36 @@ export class DriverEarningsService {
       }
     });
 
-    const completedRidesCount = await this.prisma.order.count({
+    const completedOrders = await this.prisma.order.findMany({
       where: {
         driverId: driver.id,
         status: 'DELIVERED'
+      },
+      select: {
+        finalPrice: true,
+        actualDeliveredAt: true,
       }
     });
+    
+    const completedRidesCount = completedOrders.length;
 
     // Calculate this month's earnings
     const startOfMonth = new Date();
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const monthlyTransactions = await this.prisma.walletTransaction.aggregate({
-      where: {
-        walletId: wallet?.id,
-        type: 'CREDIT',
-        createdAt: { gte: startOfMonth }
-      },
-      _sum: { amount: true }
-    });
+    const percentageMultiplier = (driver.operator?.driverEarningsDisplayPercentage || 0) / 100;
+    
+    let totalEarned = 0;
+    let monthlyEarned = 0;
 
-    const totalEarned = wallet ? Number(wallet.balance) : 0;
-    const monthlyEarned = monthlyTransactions._sum.amount ? Number(monthlyTransactions._sum.amount) : 0;
+    completedOrders.forEach(order => {
+      const orderValue = Number(order.finalPrice || 0) * percentageMultiplier;
+      totalEarned += orderValue;
+      if (order.actualDeliveredAt && order.actualDeliveredAt >= startOfMonth) {
+        monthlyEarned += orderValue;
+      }
+    });
     
     let totalRating = 0;
     ratings.forEach(r => totalRating += r.score);
@@ -135,41 +139,4 @@ export class DriverEarningsService {
     });
   }
 
-  async withdrawFunds(userId: string, amount: number) {
-    if (amount <= 0) {
-      throw new BadRequestException('Amount must be greater than zero.');
-    }
-
-    const bankAccount = await this.prisma.bankAccount.findUnique({
-      where: { userId }
-    });
-    if (!bankAccount) {
-      throw new BadRequestException('You must link a bank account before withdrawing.');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      const wallet = await tx.wallet.findUnique({ where: { userId } });
-      if (!wallet || wallet.balance.toNumber() < amount) {
-        throw new BadRequestException('Insufficient balance.');
-      }
-
-      await tx.wallet.update({
-        where: { id: wallet.id },
-        data: { balance: { decrement: amount } }
-      });
-
-      const ref = `WD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      await tx.walletTransaction.create({
-        data: {
-          walletId: wallet.id,
-          amount,
-          type: 'DEBIT',
-          description: `Withdrawal to ${bankAccount.bankName} (${bankAccount.accountNumber})`,
-          reference: ref
-        }
-      });
-
-      return { success: true, message: 'Withdrawal successful', reference: ref };
-    });
-  }
 }

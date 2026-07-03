@@ -43,6 +43,8 @@ import { InitiateOperatorSignupDto } from './dto/initiate-operator-signup.dto';
 import { SetOperatorPasswordDto } from './dto/set-operator-password.dto';
 import { CompleteOperatorProfileDto } from './dto/complete-operator-profile.dto';
 import { ChangePasswordVerifyDto } from './dto/change-password-verify.dto';
+import { PremblyService } from '../prembly/prembly.service';
+import { VerifyOperatorDto } from './dto/verify-operator.dto';
 
 @Injectable()
 export class AuthService {
@@ -51,6 +53,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly premblyService: PremblyService,
   ) {}
 
   private async generateAndSendVerificationCode(userId: string, email: string, isPasswordReset = false, length = 4) {
@@ -597,6 +600,73 @@ export class AuthService {
       operatorProfileId,
       documentsSubmitted: payload.documents.length,
       onboardingStatus: OnboardingStatus.PENDING_REVIEW,
+    };
+  }
+
+  async verifyOperator(
+    operatorProfileId: string,
+    payload: VerifyOperatorDto,
+  ) {
+    const operator = await this.prisma.operatorProfile.findUnique({
+      where: { id: operatorProfileId },
+      include: { user: true },
+    });
+
+    if (!operator) {
+      throw new NotFoundException('Operator profile not found.');
+    }
+
+    let isFullyVerified = true;
+
+    // 1. Verify RC Number
+    let companyName = operator.companyName;
+    try {
+      const cacData = await this.premblyService.verifyBusiness(payload.rcNumber);
+      if (cacData && cacData.company_name) {
+        companyName = cacData.company_name;
+      }
+    } catch (error) {
+      console.warn(`CAC verification failed for ${payload.rcNumber}`);
+      isFullyVerified = false;
+    }
+
+    // 2. Verify NIN
+    let ownerName = operator.user.fullName;
+    try {
+      const ninData = await this.premblyService.verifyNIN(payload.nin);
+      if (ninData && (ninData.firstName || ninData.lastName)) {
+        ownerName = `${ninData.firstName || ''} ${ninData.lastName || ''}`.trim();
+      }
+    } catch (error) {
+      console.warn(`NIN verification failed for ${payload.nin}`);
+      isFullyVerified = false;
+    }
+
+    // 3. Complete Onboarding
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: operator.userId },
+        data: { fullName: ownerName },
+      }),
+      this.prisma.operatorProfile.update({
+        where: { id: operatorProfileId },
+        data: {
+          rcNumber: payload.rcNumber,
+          companyName: companyName,
+          onboardingStatus: isFullyVerified ? OnboardingStatus.APPROVED : OnboardingStatus.PENDING_REVIEW,
+          kycStatus: isFullyVerified ? 'APPROVED' : 'PENDING',
+          onboardingSubmittedAt: new Date(),
+          reviewedAt: isFullyVerified ? new Date() : null,
+        },
+      })
+    ]);
+
+    return {
+      message: isFullyVerified 
+        ? 'Identity verified. Operator approved.' 
+        : 'Identity verification failed. Profile submitted for manual review.',
+      operatorProfileId,
+      status: isFullyVerified ? OnboardingStatus.APPROVED : OnboardingStatus.PENDING_REVIEW,
     };
   }
 

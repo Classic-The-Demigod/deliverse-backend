@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from '../mail/mail.service';
+import { PremblyService } from '../prembly/prembly.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -8,12 +9,13 @@ export class OperatorFleetService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailService: MailService,
+    private readonly premblyService: PremblyService,
   ) {}
 
   async getFleet(userId: string) {
     const operator = await this.prisma.operatorProfile.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, driverEarningsDisplayPercentage: true },
     });
     if (!operator) throw new NotFoundException('Operator not found');
 
@@ -30,7 +32,7 @@ export class OperatorFleetService {
       where: { operatorId: operator.id },
       include: {
         vehicle: true,
-        user: true,
+        user: { include: { bankAccount: true } },
         documents: true,
         ratings: {
           select: { score: true }
@@ -47,6 +49,9 @@ export class OperatorFleetService {
         ? d.ratings.reduce((sum, r) => sum + r.score, 0) / d.ratings.length 
         : 0;
 
+      const revenue = d.orders.reduce((sum, o) => sum + (o.finalPrice?.toNumber() || 0), 0);
+      const earnings = revenue * (operator.driverEarningsDisplayPercentage / 100);
+
       return {
         id: d.id,
         userId: d.userId,
@@ -54,7 +59,9 @@ export class OperatorFleetService {
         status: d.user?.isVerified ? d.status : 'PENDING',
         vehicle: d.vehicle ? `${d.vehicle.vehicleType} #${d.vehicle.licensePlate.substring(0,4)}` : 'Unassigned',
         deliveries: d.totalDeliveries,
-        revenue: d.orders.reduce((sum, o) => sum + (o.finalPrice?.toNumber() || 0), 0),
+        revenue,
+        earnings,
+        bankAccount: d.user?.bankAccount || null,
         rating: avgRating > 0 ? avgRating.toFixed(1) : 'New',
         firstName: d.firstName,
         lastName: d.lastName,
@@ -80,6 +87,8 @@ export class OperatorFleetService {
       vehicle: i.assignedVehicle ? `${i.assignedVehicle.vehicleType} #${i.assignedVehicle.licensePlate.substring(0,4)}` : 'Unassigned',
       deliveries: 0,
       revenue: 0,
+      earnings: 0,
+      bankAccount: null,
       rating: 0,
       firstName: '',
       lastName: '',
@@ -93,6 +102,15 @@ export class OperatorFleetService {
   async addVehicle(userId: string, dto: any) {
     const operator = await this.prisma.operatorProfile.findUnique({ where: { userId }, select: { id: true } });
     if (!operator) throw new NotFoundException('Operator not found');
+
+    // Verify License Plate with Prembly
+    try {
+      await this.premblyService.verifyVehicle(dto.licensePlate);
+    } catch (error) {
+      if (!dto.vinFileUrl) {
+        throw new BadRequestException("License plate verification failed. Please upload the optional VIN Document as a fallback.");
+      }
+    }
 
     const documentsToCreate: any[] = [];
     if (dto.vinFileUrl) {
@@ -123,6 +141,35 @@ export class OperatorFleetService {
     const operatorName = operator.companyName || operator.user?.fullName || 'A Deliverse Operator';
     const inviteToken = crypto.randomBytes(32).toString('hex');
     
+    // 1. Verify Driver NIN
+    let ninVerified = true;
+    if (dto.nin) {
+      try {
+        await this.premblyService.verifyNIN(dto.nin);
+      } catch (e) {
+        ninVerified = false;
+      }
+    } else {
+      ninVerified = false;
+    }
+
+    // 2. Verify Driver License
+    let licenseVerified = true;
+    if (dto.licenseNumber) {
+      try {
+        await this.premblyService.verifyDriverLicense(dto.licenseNumber);
+      } catch (e) {
+        licenseVerified = false;
+      }
+    } else {
+      licenseVerified = false;
+    }
+
+    if ((!ninVerified && !dto.ninFileUrl) || (!licenseVerified && !dto.licenseFileUrl)) {
+      throw new BadRequestException("Identity verification failed. Please upload the optional NIN and Driver's License documents as fallbacks.");
+    }
+
+    
     // Create the placeholder user with their actual name so it's not "New Driver"
     let user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
     if (!user) {
@@ -152,6 +199,7 @@ export class OperatorFleetService {
           lastName: dto.fullName?.split(' ')[1] || '',
           address: dto.address,
           licenseNumber: dto.licenseNumber,
+          nin: dto.nin,
           vehicleId: dto.vehicleId || null,
           documents: {
             create: documentsToCreate
@@ -178,6 +226,7 @@ export class OperatorFleetService {
           lastName: dto.fullName?.split(' ')[1] || driverProfile.lastName,
           address: dto.address || driverProfile.address,
           licenseNumber: dto.licenseNumber || driverProfile.licenseNumber,
+          nin: dto.nin || driverProfile.nin,
           vehicleId: dto.vehicleId || driverProfile.vehicleId,
           documents: documentsToCreate.length > 0 ? { create: documentsToCreate } : undefined
         }

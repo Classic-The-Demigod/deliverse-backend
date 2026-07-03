@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Patch, Res } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Role } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -22,6 +23,7 @@ import { DriverVerifySetupDto } from './dto/driver-verify-setup.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { InitiateOperatorSignupDto } from './dto/initiate-operator-signup.dto';
 import { SetOperatorPasswordDto } from './dto/set-operator-password.dto';
+import { VerifyOperatorDto } from './dto/verify-operator.dto';
 import { CompleteOperatorProfileDto } from './dto/complete-operator-profile.dto';
 import { ChangePasswordVerifyDto } from './dto/change-password-verify.dto';
 import type { Response } from 'express';
@@ -133,6 +135,16 @@ export class AuthController {
     return this.authService.submitOperatorDocuments(operatorProfileId, payload);
   }
 
+  @Roles(Role.OPERATOR)
+  @Post('onboarding/operator/:operatorProfileId/verify')
+  verifyOperator(
+    @Param('operatorProfileId') operatorProfileId: string,
+    @Body() payload: VerifyOperatorDto,
+  ) {
+    return this.authService.verifyOperator(operatorProfileId, payload);
+  }
+
+
   @Public()
   @Post('oauth/google')
   signupWithGoogle(@Body() payload: OAuthSignupDto) {
@@ -146,6 +158,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
   async login(
     @Body() payload: LoginDto,
@@ -188,6 +201,7 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('verify-email')
   async verifyEmail(
     @Body() payload: VerifyEmailDto,
@@ -200,18 +214,21 @@ export class AuthController {
   }
 
   @Public()
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('resend-code')
   resendCode(@Body() payload: ResendCodeDto) {
     return this.authService.resendCode(payload);
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('forgot-password')
   forgotPassword(@Body() payload: ForgotPasswordDto) {
     return this.authService.forgotPassword(payload);
   }
 
   @Public()
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
   @Post('reset-password')
   resetPassword(@Body() payload: ResetPasswordDto) {
     return this.authService.resetPassword(payload);

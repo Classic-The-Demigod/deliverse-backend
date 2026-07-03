@@ -25,6 +25,7 @@ import { OperatorSettingsModule } from './operator-settings/operator-settings.mo
 import { NotificationsModule } from './notifications/notifications.module';
 import { AppController } from './app.controller';
 import { DeveloperModule } from './developer/developer.module';
+import { PremblyModule } from './prembly/prembly.module';
 import { AppService } from './app.service';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
@@ -64,6 +65,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
     OperatorFleetModule,
     OperatorSettingsModule,
     DeveloperModule,
+    PremblyModule,
   ],
   controllers: [AppController],
   providers: [
