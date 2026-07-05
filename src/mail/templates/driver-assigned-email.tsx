@@ -13,6 +13,8 @@ import {
   Button,
 } from '@react-email/components';
 
+const LOGO_URL = 'https://via.placeholder.com/150x40/111827/ffffff?text=DELIVERSE';
+
 interface DriverAssignedEmailProps {
   driverName: string;
   orderNumber: string;
@@ -27,14 +29,10 @@ export default function DriverAssignedEmail({ driverName, orderNumber, pickupAdd
       <Tailwind>
         <Body className="bg-gray-50 font-sans">
           <Container className="mx-auto py-10 px-4">
-            <Section className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 mt-8 mx-auto max-w-lg text-center">
-              <Img 
-                src="https://deliverse.app/logo-dark.png" 
-                alt="Deliverse" 
-                className="w-32 mx-auto mb-8"
-              />
-              <Heading className="text-2xl font-bold text-gray-900 mb-4">
-                New Delivery Assigned!
+            <Section className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 mt-8 mx-auto max-w-lg">
+              <Img src={LOGO_URL} width="150" height="40" alt="Deliverse Logo" className="mx-auto mb-6" />
+              <Heading className="text-2xl font-bold text-gray-900 mb-4 text-center">
+                New Delivery Assigned
               </Heading>
               <Text className="text-base text-gray-600 mb-6 leading-relaxed">
                 Hi {driverName}, you have been assigned to a new delivery order (<strong>#{orderNumber.substring(0,8)}</strong>).

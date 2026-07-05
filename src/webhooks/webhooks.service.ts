@@ -6,6 +6,8 @@ import * as crypto from 'crypto';
 import axios from 'axios';
 import { globalEventEmitter } from '../common/events/global-event-emitter';
 
+import { MailService } from '../mail/mail.service';
+
 @Injectable()
 export class WebhooksService implements OnModuleInit {
   private readonly logger = new Logger(WebhooksService.name);
@@ -13,6 +15,7 @@ export class WebhooksService implements OnModuleInit {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   onModuleInit() {
@@ -80,6 +83,17 @@ export class WebhooksService implements OnModuleInit {
             responseBody: error.response?.data ? JSON.stringify(error.response.data) : error.message,
           }
         });
+        
+        // Count consecutive failures (simple approach: count last 3)
+        const recentAttempts = await this.prisma.webhookDeliveryAttempt.findMany({
+          where: { endpointId: endpoint.id },
+          orderBy: { createdAt: 'desc' },
+          take: 3
+        });
+        const allFailed = recentAttempts.length >= 3 && recentAttempts.every(a => a.status === WebhookDeliveryStatus.FAILED);
+        if (allFailed) {
+          await this.mailService.sendWebhookFailureEmail(order.user.email, endpoint.url);
+        }
       }
     }
   }
@@ -225,5 +239,13 @@ export class WebhooksService implements OnModuleInit {
         });
       }
     });
+
+    // 5. Send Order Receipt Email
+    await this.mailService.sendOrderReceiptEmail(
+      payment.order.user.email,
+      payment.order.user.fullName || 'Customer',
+      payment.order.orderNumber,
+      payment.amount.toNumber()
+    );
   }
 }

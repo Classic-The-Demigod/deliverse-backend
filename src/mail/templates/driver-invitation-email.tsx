@@ -9,9 +9,11 @@ import {
   Heading,
   Tailwind,
   Hr,
-  Img,
   Button,
+  Img,
 } from '@react-email/components';
+
+const LOGO_URL = 'https://via.placeholder.com/150x40/111827/ffffff?text=DELIVERSE';
 
 interface DriverInvitationEmailProps {
   operatorName: string;
@@ -28,11 +30,7 @@ export default function DriverInvitationEmail({ operatorName, inviteToken }: Dri
         <Body className="bg-gray-50 font-sans">
           <Container className="mx-auto py-10 px-4">
             <Section className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 mt-8 mx-auto max-w-lg text-center">
-              <Img 
-                src="https://deliverse.app/logo-dark.png" 
-                alt="Deliverse" 
-                className="w-32 mx-auto mb-8"
-              />
+              <Img src={LOGO_URL} width="150" height="40" alt="Deliverse Logo" className="mx-auto mb-6" />
               <Heading className="text-2xl font-bold text-gray-900 mb-4">
                 You've been invited to drive!
               </Heading>

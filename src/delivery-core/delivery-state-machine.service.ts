@@ -2,6 +2,8 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderStatus, Role } from '@prisma/client';
 
+import { MailService } from '../mail/mail.service';
+
 export interface TransitionContext {
   actorId: string;
   actorRole: Role;
@@ -14,7 +16,10 @@ export interface TransitionContext {
 
 @Injectable()
 export class DeliveryStateMachineService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mailService: MailService,
+  ) {}
 
   getAllowedTransitions(): Record<OrderStatus, OrderStatus[]> {
     return {
@@ -44,11 +49,11 @@ export class DeliveryStateMachineService {
     nextStatus: OrderStatus,
     context: TransitionContext,
   ) {
-    return this.prisma.$transaction(async (tx) => {
-      // 1. Fetch current order state
+    const result = await this.prisma.$transaction(async (tx) => {
+      // 1. Fetch current order state and user
       const order = await tx.order.findUnique({
         where: { id: orderId },
-        select: { id: true, status: true },
+        select: { id: true, status: true, orderNumber: true, user: { select: { email: true, fullName: true, notifyDelivery: true } } },
       });
 
       if (!order) {
@@ -126,7 +131,23 @@ export class DeliveryStateMachineService {
         },
       });
 
-      return updatedOrder;
+      return { updatedOrder, orderDetails: order };
     });
+
+    // 5. Send Email if user has notifications enabled
+    if (result.orderDetails.user && result.orderDetails.user.notifyDelivery !== false) {
+      // Send for meaningful status updates
+      const notifyStatuses = ['ACCEPTED', 'ASSIGNED', 'PICKED_UP', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'FAILED', 'RETURNED'];
+      if (notifyStatuses.includes(nextStatus)) {
+        await this.mailService.sendOrderStatusEmail(
+          result.orderDetails.user.email,
+          result.orderDetails.user.fullName || 'Customer',
+          result.orderDetails.orderNumber,
+          nextStatus
+        );
+      }
+    }
+
+    return result.updatedOrder;
   }
 }

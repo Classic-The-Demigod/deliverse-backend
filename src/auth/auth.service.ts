@@ -661,6 +661,10 @@ export class AuthService {
       })
     ]);
 
+    if (isFullyVerified && operator.user) {
+      await this.mailService.sendAccountApprovalEmail(operator.user.email, companyName, 'Operator');
+    }
+
     return {
       message: isFullyVerified 
         ? 'Identity verified. Operator approved.' 
@@ -1039,6 +1043,8 @@ export class AuthService {
     ]);
 
     const session = await this.issueSession(user.id, user.email, user.role);
+
+    await this.mailService.sendWelcomeEmail(user.email, user.fullName || 'User');
 
     return { 
       message: 'Email verified successfully.',

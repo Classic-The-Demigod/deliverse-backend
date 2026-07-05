@@ -6,6 +6,7 @@ import { WithdrawalDto } from './dto/withdrawal.dto';
 import { InitializePaymentDto, PaymentMethod } from './dto/initialize-payment.dto';
 import { PaystackService } from './providers/paystack.service';
 import { MonnifyService } from './providers/monnify.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class PaymentsService {
@@ -13,6 +14,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly paystackService: PaystackService,
     private readonly monnifyService: MonnifyService,
+    private readonly mailService: MailService,
   ) {}
 
   private async getOperatorWallet(userId: string) {
@@ -69,9 +71,19 @@ export class PaymentsService {
       if (!savedCard) throw new NotFoundException('Saved card not found.');
 
       if (savedCard.provider === PaymentProvider.PAYSTACK) {
-        await this.paystackService.chargeAuthorization(email, amountKobo, savedCard.authorizationCode, reference);
+        try {
+          await this.paystackService.chargeAuthorization(email, amountKobo, savedCard.authorizationCode, reference);
+        } catch (e) {
+          await this.mailService.sendPaymentFailedEmail(email, order.orderNumber, payment.amount.toNumber());
+          throw new BadRequestException('Payment failed via saved card. Please try a different payment method.');
+        }
       } else {
-        await this.monnifyService.chargeAuthorization(email, amountKobo, savedCard.authorizationCode, reference);
+        try {
+          await this.monnifyService.chargeAuthorization(email, amountKobo, savedCard.authorizationCode, reference);
+        } catch (e) {
+          await this.mailService.sendPaymentFailedEmail(email, order.orderNumber, payment.amount.toNumber());
+          throw new BadRequestException('Payment failed via saved card. Please try a different payment method.');
+        }
       }
 
       return {

@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { DisputesService } from './disputes.service';
+import { CreateDisputeDto } from './dto/create-dispute.dto';
+import { ResolveDisputeDto } from './dto/resolve-dispute.dto';
 
 @Controller('disputes')
 export class DisputesController {
@@ -9,8 +11,8 @@ export class DisputesController {
 
   @Roles(Role.USER, Role.OPERATOR, Role.ADMIN)
   @Post()
-  create(@Body() payload: Record<string, unknown>) {
-    return this.disputesService.create(payload);
+  create(@Req() req: any, @Body() payload: CreateDisputeDto) {
+    return this.disputesService.create(req.user.id, req.user.role, payload);
   }
 
   @Roles(Role.USER, Role.OPERATOR, Role.ADMIN)
@@ -22,9 +24,10 @@ export class DisputesController {
   @Roles(Role.ADMIN)
   @Post(':disputeId/resolve')
   resolve(
+    @Req() req: any,
     @Param('disputeId') disputeId: string,
-    @Body() payload: Record<string, unknown>,
+    @Body() payload: ResolveDisputeDto,
   ) {
-    return this.disputesService.resolve(disputeId, payload);
+    return this.disputesService.resolve(disputeId, req.user.id, payload);
   }
 }

@@ -9,7 +9,10 @@ import {
   Heading,
   Tailwind,
   Hr,
+  Img,
 } from '@react-email/components';
+
+const LOGO_URL = 'https://via.placeholder.com/150x40/111827/ffffff?text=DELIVERSE';
 
 interface VerificationEmailProps {
   code: string;
@@ -23,6 +26,7 @@ export default function VerificationEmail({ code }: VerificationEmailProps) {
         <Body className="bg-gray-50 font-sans">
           <Container className="mx-auto py-10 px-4">
             <Section className="bg-white rounded-2xl shadow-sm p-8 border border-gray-100 mt-8 mx-auto max-w-lg text-center">
+              <Img src={LOGO_URL} width="150" height="40" alt="Deliverse Logo" className="mx-auto mb-6" />
               <Heading className="text-2xl font-bold text-gray-900 mb-4">
                 Verify Your Email
               </Heading>

@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { OnboardingStatus, ChatSessionType } from '@prisma/client';
 import * as argon2 from 'argon2';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly mailService: MailService,
+  ) {}
 
   async getOperationsOverview() {
     const [
@@ -211,10 +215,10 @@ export class AdminService {
   }
 
   async approveBusiness(id: string) {
-    const business = await this.prisma.businessProfile.findUnique({ where: { id } });
+    const business = await this.prisma.businessProfile.findUnique({ where: { id }, include: { user: true } });
     if (!business) throw new NotFoundException('Business not found');
 
-    return this.prisma.businessProfile.update({
+    const updated = await this.prisma.businessProfile.update({
       where: { id },
       data: {
         isApproved: true,
@@ -224,13 +228,19 @@ export class AdminService {
       },
       include: { user: true },
     });
+
+    if (updated.user) {
+      await this.mailService.sendAccountApprovalEmail(updated.user.email, business.businessName, 'Business');
+    }
+
+    return updated;
   }
 
   async rejectBusiness(id: string, reason: string) {
-    const business = await this.prisma.businessProfile.findUnique({ where: { id } });
+    const business = await this.prisma.businessProfile.findUnique({ where: { id }, include: { user: true } });
     if (!business) throw new NotFoundException('Business not found');
 
-    return this.prisma.businessProfile.update({
+    const updated = await this.prisma.businessProfile.update({
       where: { id },
       data: {
         isApproved: false,
@@ -240,6 +250,12 @@ export class AdminService {
       },
       include: { user: true },
     });
+
+    if (updated.user) {
+      await this.mailService.sendAccountRejectionEmail(updated.user.email, business.businessName, 'Business', reason);
+    }
+
+    return updated;
   }
 
   async getPendingDrivers() {
@@ -257,10 +273,10 @@ export class AdminService {
   }
 
   async approveDriver(id: string) {
-    const driver = await this.prisma.driverProfile.findUnique({ where: { id } });
+    const driver = await this.prisma.driverProfile.findUnique({ where: { id }, include: { user: true } });
     if (!driver) throw new NotFoundException('Driver not found');
 
-    return this.prisma.driverProfile.update({
+    const updated = await this.prisma.driverProfile.update({
       where: { id },
       data: {
         onboardingStatus: OnboardingStatus.APPROVED,
@@ -269,13 +285,19 @@ export class AdminService {
       },
       include: { user: true },
     });
+
+    if (updated.user) {
+      await this.mailService.sendAccountApprovalEmail(updated.user.email, `${driver.firstName} ${driver.lastName}`, 'Driver');
+    }
+
+    return updated;
   }
 
   async rejectDriver(id: string, reason: string) {
-    const driver = await this.prisma.driverProfile.findUnique({ where: { id } });
+    const driver = await this.prisma.driverProfile.findUnique({ where: { id }, include: { user: true } });
     if (!driver) throw new NotFoundException('Driver not found');
 
-    return this.prisma.driverProfile.update({
+    const updated = await this.prisma.driverProfile.update({
       where: { id },
       data: {
         onboardingStatus: OnboardingStatus.REJECTED,
@@ -284,6 +306,12 @@ export class AdminService {
       },
       include: { user: true },
     });
+
+    if (updated.user) {
+      await this.mailService.sendAccountRejectionEmail(updated.user.email, `${driver.firstName} ${driver.lastName}`, 'Driver', reason);
+    }
+
+    return updated;
   }
 
   // --- Orders ---

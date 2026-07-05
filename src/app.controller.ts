@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { AppService } from './app.service';
 import { Public } from './auth/decorators/public.decorator';
 
@@ -10,5 +10,11 @@ export class AppController {
   @Get()
   getOverview() {
     return this.appService.getOverview();
+  }
+
+  @Public()
+  @Get('businesses')
+  async getBusinesses(@Query('category') category?: string) {
+    return this.appService.getBusinesses(category);
   }
 }
