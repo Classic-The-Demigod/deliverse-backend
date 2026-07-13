@@ -68,9 +68,8 @@ export class DeveloperService {
     if (!key || key.businessId !== businessId) {
       throw new NotFoundException('API Key not found');
     }
-    await this.prisma.businessApiKey.update({
-      where: { id: keyId },
-      data: { status: 'REVOKED' },
+    await this.prisma.businessApiKey.delete({
+      where: { id: keyId }
     });
     return { success: true };
   }
