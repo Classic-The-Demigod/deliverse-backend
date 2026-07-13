@@ -17,6 +17,11 @@ export class UploadsController {
       throw new BadRequestException('File is required');
     }
 
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_SIZE) {
+      throw new BadRequestException('File size must not exceed 5MB');
+    }
+
     // You can enforce file type checks here
     const allowedMimeTypes = [
       'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf',

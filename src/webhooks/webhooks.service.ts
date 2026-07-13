@@ -5,18 +5,25 @@ import { PaymentProvider, WebhookDeliveryStatus, WebhookEventType } from '@prism
 import * as crypto from 'crypto';
 import axios from 'axios';
 import { globalEventEmitter } from '../common/events/global-event-emitter';
+import { CloudTasksClient } from '@google-cloud/tasks';
 
 import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class WebhooksService implements OnModuleInit {
   private readonly logger = new Logger(WebhooksService.name);
+  private cloudTasksClient?: CloudTasksClient;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
-  ) {}
+  ) {
+    const projectId = this.configService.get<string>('GCP_PROJECT_ID');
+    if (projectId) {
+      this.cloudTasksClient = new CloudTasksClient();
+    }
+  }
 
   onModuleInit() {
     globalEventEmitter.on('order.status.updated', async (eventData) => {
@@ -44,57 +51,99 @@ export class WebhooksService implements OnModuleInit {
       }
     });
 
+    const projectId = this.configService.get<string>('GCP_PROJECT_ID');
+    const location = this.configService.get<string>('GCP_LOCATION') || 'us-central1';
+    const queue = this.configService.get<string>('GCP_WEBHOOK_QUEUE') || 'webhooks';
+    const baseUrl = this.configService.get<string>('API_BASE_URL') || 'http://localhost:3000';
+
     for (const endpoint of endpoints) {
-      // Create delivery attempt record
-      const delivery = await this.prisma.webhookDeliveryAttempt.create({
-        data: {
-          endpointId: endpoint.id,
-          event,
-          status: WebhookDeliveryStatus.PENDING,
-          payload: payload,
-        }
+      if (this.cloudTasksClient && projectId) {
+        // Enqueue to Cloud Tasks
+        const queuePath = this.cloudTasksClient.queuePath(projectId, location, queue);
+        const task = {
+          httpRequest: {
+            httpMethod: 'POST' as const,
+            url: `${baseUrl}/webhooks/internal-dispatch`,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-deliverse-endpoint-id': endpoint.id,
+              'x-deliverse-event': event,
+              'x-deliverse-order-id': orderId,
+            },
+            body: Buffer.from(JSON.stringify(payload)).toString('base64'),
+          },
+        };
+        await this.cloudTasksClient.createTask({ parent: queuePath, task });
+        this.logger.log(`Enqueued webhook task for endpoint ${endpoint.id}`);
+      } else {
+        // Fallback to direct synchronous execution
+        await this.executeWebhookDelivery(endpoint.id, event, payload, order.user.email);
+      }
+    }
+  }
+
+  async executeWebhookDelivery(endpointId: string, event: WebhookEventType, payload: any, userEmail?: string) {
+    const endpoint = await this.prisma.webhookEndpoint.findUnique({ where: { id: endpointId } });
+    if (!endpoint) return;
+
+    if (!userEmail) {
+      const biz = await this.prisma.businessProfile.findUnique({
+        where: { id: endpoint.businessId },
+        include: { user: true }
+      });
+      userEmail = biz?.user?.email || undefined;
+    }
+
+    const delivery = await this.prisma.webhookDeliveryAttempt.create({
+      data: {
+        endpointId: endpoint.id,
+        event,
+        status: WebhookDeliveryStatus.PENDING,
+        payload: payload,
+      }
+    });
+
+    try {
+      const signature = crypto.createHmac('sha512', endpoint.secret).update(JSON.stringify(payload)).digest('hex');
+      const response = await axios.post(endpoint.url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Deliverse-Signature': signature,
+          'X-Deliverse-Event': event,
+        },
+        timeout: 10000,
       });
 
-      try {
-        const signature = crypto.createHmac('sha512', endpoint.secret).update(JSON.stringify(payload)).digest('hex');
-        const response = await axios.post(endpoint.url, payload, {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Deliverse-Signature': signature,
-            'X-Deliverse-Event': event,
-          },
-          timeout: 10000,
-        });
-
-        await this.prisma.webhookDeliveryAttempt.update({
-          where: { id: delivery.id },
-          data: {
-            status: WebhookDeliveryStatus.SUCCESS,
-            responseStatusCode: response.status,
-            responseBody: JSON.stringify(response.data),
-          }
-        });
-      } catch (error: any) {
-        await this.prisma.webhookDeliveryAttempt.update({
-          where: { id: delivery.id },
-          data: {
-            status: WebhookDeliveryStatus.FAILED,
-            responseStatusCode: error.response?.status || 500,
-            responseBody: error.response?.data ? JSON.stringify(error.response.data) : error.message,
-          }
-        });
-        
-        // Count consecutive failures (simple approach: count last 3)
-        const recentAttempts = await this.prisma.webhookDeliveryAttempt.findMany({
-          where: { endpointId: endpoint.id },
-          orderBy: { createdAt: 'desc' },
-          take: 3
-        });
-        const allFailed = recentAttempts.length >= 3 && recentAttempts.every(a => a.status === WebhookDeliveryStatus.FAILED);
-        if (allFailed) {
-          await this.mailService.sendWebhookFailureEmail(order.user.email, endpoint.url);
+      await this.prisma.webhookDeliveryAttempt.update({
+        where: { id: delivery.id },
+        data: {
+          status: WebhookDeliveryStatus.SUCCESS,
+          responseStatusCode: response.status,
+          responseBody: JSON.stringify(response.data),
         }
+      });
+    } catch (error: any) {
+      await this.prisma.webhookDeliveryAttempt.update({
+        where: { id: delivery.id },
+        data: {
+          status: WebhookDeliveryStatus.FAILED,
+          responseStatusCode: error.response?.status || 500,
+          responseBody: error.response?.data ? JSON.stringify(error.response.data) : error.message,
+        }
+      });
+      
+      const recentAttempts = await this.prisma.webhookDeliveryAttempt.findMany({
+        where: { endpointId: endpoint.id },
+        orderBy: { createdAt: 'desc' },
+        take: 3
+      });
+      const allFailed = recentAttempts.length >= 3 && recentAttempts.every(a => a.status === WebhookDeliveryStatus.FAILED);
+      if (allFailed && userEmail) {
+        await this.mailService.sendWebhookFailureEmail(userEmail, endpoint.url);
       }
+
+      // Throw so Cloud Tasks knows it failed and will retry
+      throw new Error(`Webhook delivery failed: ${error.message}`);
     }
   }
 

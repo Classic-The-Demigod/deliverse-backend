@@ -28,6 +28,7 @@ import { DeveloperModule } from './developer/developer.module';
 import { PremblyModule } from './prembly/prembly.module';
 import { AppService } from './app.service';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
     OperatorSettingsModule,
     DeveloperModule,
     PremblyModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [

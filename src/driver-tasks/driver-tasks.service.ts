@@ -169,23 +169,27 @@ export class DriverTasksService {
     const driver = await this.getDriver(userId);
 
     const order = await this.prisma.$transaction(async (tx) => {
-      const targetOrder = await tx.order.findUnique({
-        where: { id: orderId },
-        include: { operator: { include: { user: true } } }
-      });
-
-      if (!targetOrder || targetOrder.status !== OrderStatus.BROADCAST) {
-        throw new BadRequestException('Order is no longer available.');
+      let updatedOrder;
+      try {
+        // Assign the order to this driver atomically
+        updatedOrder = await tx.order.update({
+          where: { 
+            id: orderId,
+            driverId: null,
+            status: OrderStatus.BROADCAST,
+          },
+          data: {
+            driverId: driver.id,
+            driverAccepted: true,
+          },
+          include: { operator: { include: { user: true } } }
+        });
+      } catch (error: any) {
+        if (error.code === 'P2025') {
+          throw new BadRequestException('Order has already been assigned or is no longer available.');
+        }
+        throw error;
       }
-
-      // Assign the order to this driver
-      const updatedOrder = await tx.order.update({
-        where: { id: orderId },
-        data: {
-          driverId: driver.id,
-          driverAccepted: true,
-        },
-      });
 
       // Update driver status to ACTIVE
       await tx.driverProfile.update({
@@ -194,13 +198,13 @@ export class DriverTasksService {
       });
 
       // Send notification to Operator
-      if (targetOrder.operator && targetOrder.operator.user.notifyDispatch) {
+      if (updatedOrder.operator && updatedOrder.operator.user.notifyDispatch) {
         await tx.notification.create({
           data: {
-            userId: targetOrder.operator.userId,
+            userId: updatedOrder.operator.userId,
             type: 'ORDER_ACCEPTED',
             title: 'Driver Accepted Order',
-            body: `Driver has accepted the broadcasted order ${targetOrder.orderNumber}.`,
+            body: `Driver has accepted the broadcasted order ${updatedOrder.orderNumber}.`,
             data: { orderId },
           }
         });

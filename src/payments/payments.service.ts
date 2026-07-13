@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletTransactionType, SettlementStatus, PaymentProvider } from '@prisma/client';
 import { LinkBankAccountDto } from './dto/link-bank-account.dto';
@@ -10,6 +11,7 @@ import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly paystackService: PaystackService,
@@ -272,5 +274,29 @@ export class PaymentsService {
       message: 'Withdrawal requested successfully. Funds will arrive shortly.',
       data: result,
     };
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async cancelStaleOrders() {
+    // 30 minutes ago
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000);
+
+    try {
+      const result = await this.prisma.order.updateMany({
+        where: { 
+          status: 'CREATED', 
+          createdAt: { lt: cutoff } 
+        },
+        data: { 
+          status: 'CANCELLED' 
+        },
+      });
+
+      if (result.count > 0) {
+        this.logger.log(`Cancelled ${result.count} stale pending orders.`);
+      }
+    } catch (error) {
+      this.logger.error('Error cancelling stale orders', error);
+    }
   }
 }
