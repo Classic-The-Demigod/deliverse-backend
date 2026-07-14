@@ -24,9 +24,9 @@ export class CreateOrderDto {
   @IsString()
   merchantReference?: string;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  operatorId!: string;
+  operatorId?: string;
 
   @IsEnum(VehicleType)
     vehicleType!: VehicleType;

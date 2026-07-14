@@ -9,11 +9,13 @@ export class ApiKeyGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     
     // 1. Look for API Key in headers
-    const apiKey = request.headers['x-api-key'] as string;
+    let apiKey = request.headers['x-api-key'] as string;
     
     if (!apiKey) {
       throw new UnauthorizedException('Missing X-Api-Key header');
     }
+
+    apiKey = apiKey.trim();
 
     const isSecret = apiKey.startsWith('dlv_sec_');
 

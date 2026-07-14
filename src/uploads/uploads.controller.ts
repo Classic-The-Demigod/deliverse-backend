@@ -11,7 +11,11 @@ export class UploadsController {
 
   @Public() // Can restrict to specific roles if needed, but often images are uploaded before full auth or during onboarding
   @Post()
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(FileInterceptor('file', {
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB
+    }
+  }))
   async uploadFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('File is required');
