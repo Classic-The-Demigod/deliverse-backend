@@ -22,7 +22,7 @@ export class MailService {
   private readonly fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
 
   constructor() {
-    this.resend = new Resend(process.env.RESEND_API_KEY || 're_A7ajz8ch_Mv5tANQbg7C9QyYAduSix2k9');
+    this.resend = new Resend(process.env.RESEND_API_KEY);
   }
 
   async sendVerificationEmail(email: string, code: string): Promise<void> {

@@ -22,21 +22,32 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
+    const exceptionResponse =
       exception instanceof HttpException
         ? exception.getResponse()
-        : 'Internal server error';
+        : { message: 'Internal server error' };
+
+    const message =
+      typeof exceptionResponse === 'object' && exceptionResponse !== null
+        ? (exceptionResponse as any).message || exceptionResponse
+        : exceptionResponse;
 
     // Log the error properly in the backend terminal
-    this.logger.error(
-      `[${request.method}] ${request.url} - Status: ${status}`,
-      exception instanceof Error ? exception.stack : JSON.stringify(exception),
-    );
+    if (status >= 500) {
+      this.logger.error(
+        `[${request.method}] ${request.url} - Status: ${status} - Error: ${JSON.stringify(message)}`,
+        exception instanceof Error ? exception.stack : '',
+      );
+    } else {
+      this.logger.warn(
+        `[${request.method}] ${request.url} - Status: ${status} - Message: ${JSON.stringify(message)}`
+      );
+    }
 
     response.status(status).json({
       timestamp: new Date().toISOString(),
       path: request.url,
-      error: message,
+      message: message, // Use unified 'message' key
     });
   }
 }
